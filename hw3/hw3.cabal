@@ -18,19 +18,28 @@ tested-with:         GHC == 8.0.1
 
 library
   hs-source-dirs:      src
-  exposed-modules:     HW3.Temp
+  exposed-modules:     HW3.Base
+                       HW3.Evaluator
+                       HW3.Parser
+                       HW3.Pretty
   ghc-options:         -Wall
-  build-depends:       base >= 4.9 && < 5, scientific
+  build-depends:       base >= 4.9 && < 5
+               ,       scientific
+               ,       megaparsec
+               ,       prettyprinter
+               ,       prettyprinter-ansi-terminal
 
   default-language:    Haskell2010
 
---executable main
---    hs-source-dirs:     src
---    main-is:            Main.hs
---    other-modules:      HW2.Temp
---                        HW2.T2
---                        HW2.T3
---                        HW2.T4
---                        HW2.T5
---                        HW2.T6
---    build-depends:      base >= 4.9 && < 5, scientific
+executable hi
+    hs-source-dirs:     src
+    main-is:            Main.hs
+    other-modules:      HW3.Base
+                        HW3.Evaluator
+                        HW3.Parser
+                        HW3.Pretty
+    build-depends:      base >= 4.9 && < 5
+                 ,       scientific
+                 ,       megaparsec
+                 ,       prettyprinter
+                 ,       prettyprinter-ansi-terminal
