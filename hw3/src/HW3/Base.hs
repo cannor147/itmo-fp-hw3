@@ -5,6 +5,7 @@ module HW3.Base
   , HiValue(..)
   , HiExpr(..)
   , HiError(..)
+  , apply
   ) where
 
 data HiFun = HiFunDiv
@@ -37,3 +38,6 @@ data HiError = HiErrorInvalidArgument
              | HiErrorArityMismatch
              | HiErrorDivideByZero
   deriving Show
+
+apply :: HiFun -> [HiExpr] -> HiExpr
+apply = HiExprApply . HiExprValue . HiValueFunction

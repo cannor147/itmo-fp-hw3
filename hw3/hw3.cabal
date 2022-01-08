@@ -21,12 +21,14 @@ library
   exposed-modules:   HW3.Base
                      HW3.Classes
                      HW3.Evaluator
+                     HW3.Lexer
                      HW3.Parser
                      HW3.Pretty
   ghc-options:       -Wall
   build-depends:     base >= 4.9 && < 5
                ,     scientific
                ,     megaparsec >= 9.0.1
+               ,     parser-combinators
                ,     prettyprinter
                ,     prettyprinter-ansi-terminal
 
@@ -38,10 +40,12 @@ executable hi
     other-modules:   HW3.Base
                      HW3.Classes
                      HW3.Evaluator
+                     HW3.Lexer
                      HW3.Parser
                      HW3.Pretty
     build-depends:   base >= 4.9 && < 5
                  ,   scientific
                  ,   megaparsec >= 9.0.1
+                 ,   parser-combinators
                  ,   prettyprinter
                  ,   prettyprinter-ansi-terminal

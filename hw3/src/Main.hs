@@ -9,6 +9,7 @@ handle :: String -> IO ()
 handle text = do
   putStrLn $ "=== " <> text <> " ==="
   let syntaxTree = either (const Nothing) Just (parse text)
+  print $ parse text
 --  maybe (putStrLn "Can't parse expression.") print syntaxTree
   value <- mapM eval syntaxTree
   maybe (putStrLn "Can't calculate expression.") print value
@@ -59,10 +60,14 @@ main = do
     handle "if(false, add, mul)(10, 10)"
     handle "equals(add, add)"
     handle "equals(add, mul)"
+    handle "2 + 2"
+    handle "2 + 2 * 3"
+    handle "(2 + 2) * 3"
+    handle "2 + 2 * 3 == (2 + 2) * 3"
+    handle "10 == 2*5 && 143 == 11*13"
+    handle "add(10, 4) + 2 * 3"
+    handle "2 + add(10, 4) * 3"
+    handle "2 + 3 * add(10, 4)"
+    handle "add(10 - 4 * 2, 7)"
+    handle " true&&( true&&false ) "
     handle ""
---    handle ""
---    handle ""
---    handle ""
---    handle ""
---    handle ""
---    handle ""

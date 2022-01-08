@@ -59,35 +59,35 @@ instance Fractional Value where
   fromRational                  = Val . HiValueNumber
 
 instance Boolean Value where
-  (<&&>)   = boolean2 (&&)
-  (<||>)   = boolean2 (||)
-  (<!>)    = boolean not
+  (#&&#)   = boolean2 (&&)
+  (#||#)   = boolean2 (||)
+  (#!#)    = boolean not
   fromBool = Val . HiValueBool
 
 instance Equalable Value Value where
-  (<==>) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a == b
-  (<==>) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a == b
-  (<==>) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a == b
-  (<==>) hiError@(Er _)            _                         = hiError
-  (<==>) _                         hiError@(Er _)            = hiError
-  (<==>) _                         _                         = fromBool False
+  (#==#) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a == b
+  (#==#) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a == b
+  (#==#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a == b
+  (#==#) hiError@(Er _)            _                         = hiError
+  (#==#) _                         hiError@(Er _)            = hiError
+  (#==#) _                         _                         = fromBool False
 
 instance Comparable Value Value where
-  (<<=>) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a <= b
-  (<<=>) (Val (HiValueFunction _)) _                         = fromBool False
-  (<<=>) (Val (HiValueNumber _))   (Val (HiValueFunction _)) = fromBool True
-  (<<=>) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a <= b
-  (<<=>) (Val (HiValueNumber _))   (Val (HiValueBool _))     = fromBool False
-  (<<=>) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a <= b
-  (<<=>) (Val (HiValueBool _))     _                         = fromBool True
-  (<<=>) hiError@(Er _)            _                         = hiError
-  (<<=>) _                         hiError@(Er _)            = hiError
+  (#<=#) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a <= b
+  (#<=#) (Val (HiValueFunction _)) _                         = fromBool False
+  (#<=#) (Val (HiValueNumber _))   (Val (HiValueFunction _)) = fromBool True
+  (#<=#) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a <= b
+  (#<=#) (Val (HiValueNumber _))   (Val (HiValueBool _))     = fromBool False
+  (#<=#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a <= b
+  (#<=#) (Val (HiValueBool _))     _                         = fromBool True
+  (#<=#) hiError@(Er _)            _                         = hiError
+  (#<=#) _                         hiError@(Er _)            = hiError
 
 instance Conditional Value Value where
-  (<?:>) hiError@(Er _)            _     _     = hiError
-  (<?:>) (Val (HiValueBool True))  value _     = value
-  (<?:>) (Val (HiValueBool False)) _     value = value
-  (<?:>) _                         _     _     = Er HiErrorInvalidArgument
+  (#?:#) hiError@(Er _)            _     _     = hiError
+  (#?:#) (Val (HiValueBool True))  value _     = value
+  (#?:#) (Val (HiValueBool False)) _     value = value
+  (#?:#) _                         _     _     = Er HiErrorInvalidArgument
 
 evaluate :: Monad m => HiExpr -> m Value
 evaluate (HiExprValue value)                                    = pure $ Val value
@@ -102,16 +102,16 @@ evaluateFunction HiFunAdd            [x, y]    = evaluateBinaryFunction  (+)    
 evaluateFunction HiFunSub            [x, y]    = evaluateBinaryFunction  (-)    x y
 evaluateFunction HiFunMul            [x, y]    = evaluateBinaryFunction  (*)    x y
 evaluateFunction HiFunDiv            [x, y]    = evaluateBinaryFunction  (/)    x y
-evaluateFunction HiFunNot            [x]       = evaluateUnaryFunction   (<!>)  x
-evaluateFunction HiFunAnd            [x, y]    = evaluateBinaryFunction  (<&&>) x y
-evaluateFunction HiFunOr             [x, y]    = evaluateBinaryFunction  (<||>) x y
-evaluateFunction HiFunLessThan       [x, y]    = evaluateBinaryFunction  (<<=>) x y
-evaluateFunction HiFunGreaterThan    [x, y]    = evaluateBinaryFunction  (<>=>) x y
-evaluateFunction HiFunEquals         [x, y]    = evaluateBinaryFunction  (<==>) x y
-evaluateFunction HiFunNotLessThan    [x, y]    = evaluateBinaryFunction  (<>>)  x y
-evaluateFunction HiFunNotGreaterThan [x, y]    = evaluateBinaryFunction  (<<>)  x y
-evaluateFunction HiFunNotEquals      [x, y]    = evaluateBinaryFunction  (<!=>) x y
-evaluateFunction HiFunIf             [x, y, z] = evaluateTernaryFunction (<?:>) x y z
+evaluateFunction HiFunNot            [x]       = evaluateUnaryFunction   (#!#)  x
+evaluateFunction HiFunAnd            [x, y]    = evaluateBinaryFunction  (#&&#) x y
+evaluateFunction HiFunOr             [x, y]    = evaluateBinaryFunction  (#||#) x y
+evaluateFunction HiFunLessThan       [x, y]    = evaluateBinaryFunction  (#<=#) x y
+evaluateFunction HiFunGreaterThan    [x, y]    = evaluateBinaryFunction  (#>=#) x y
+evaluateFunction HiFunEquals         [x, y]    = evaluateBinaryFunction  (#==#) x y
+evaluateFunction HiFunNotLessThan    [x, y]    = evaluateBinaryFunction  (#>#)  x y
+evaluateFunction HiFunNotGreaterThan [x, y]    = evaluateBinaryFunction  (#<#)  x y
+evaluateFunction HiFunNotEquals      [x, y]    = evaluateBinaryFunction  (#!=#) x y
+evaluateFunction HiFunIf             [x, y, z] = evaluateTernaryFunction (#?:#) x y z
 evaluateFunction _                   _      = pure $ Er HiErrorArityMismatch
 
 evaluateUnaryFunction :: Monad m => UnaryOperator -> HiExpr -> m Value

@@ -2,65 +2,85 @@ module HW3.Parser
   ( parse
   ) where
 
-import           Control.Applicative        (many, optional, (<|>))
-import           Control.Monad              (void)
-import           Data.Maybe                 (fromMaybe)
-import           Data.Void                  (Void)
+import           Control.Monad                  (void)
+import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
+import           Data.Foldable                  (foldl')
+import           Data.Maybe                     (fromMaybe)
+import           Data.Void                      (Void)
 import           HW3.Base
-import           Text.Megaparsec            (Parsec, runParser, eof)
-import           Text.Megaparsec.Char       (space1, string)
-import           Text.Megaparsec.Char.Lexer (scientific, skipBlockComment,
-                                             skipLineComment, space, signed)
-import           Text.Megaparsec.Error      (ParseErrorBundle (..))
-import Data.Foldable (foldl')
+import           HW3.Lexer
+import           Text.Megaparsec                (Parsec, many, optional, (<|>))
+import           Text.Megaparsec.Error          (ParseErrorBundle (..))
 
 type HiParser = Parsec Void String
 
 parse :: String -> Either (ParseErrorBundle String Void) HiExpr
-parse = runParser (parseExpression <* eof) mempty
+parse = parseFully parseExpression
 
 parseExpression :: HiParser HiExpr
-parseExpression = do
-  value <- skipWhiteSpaces *> parseValue
-  applications <- many $ skipWhiteSpaces *> parseApplication
-  void skipWhiteSpaces
-  return $ foldl' (flip id) value applications
+parseExpression = parseOperators
+
+parseApplication :: HiParser HiExpr
+parseApplication = do
+  head' <- parseValue <|> parseBrackets
+  tail' <- many $ do
+    void open
+    arguments <- optional $ do
+      firstArgument  <- parseOperators
+      otherArguments <- many $ comma *> parseOperators
+      return $ firstArgument : otherArguments
+    void close
+    return $ \applier -> HiExprApply applier $ fromMaybe [] arguments
+  return $ foldl' (flip id) head' tail'
+
+parseOperators :: HiParser HiExpr
+parseOperators = makeExprParser (parseApplication <|> parseBrackets)
+  [ [ binaryOperator InfixL HiFunMul asterisk
+    , binaryOperator InfixL HiFunDiv slash
+    ]
+  , [ binaryOperator InfixL HiFunAdd plus
+    , binaryOperator InfixL HiFunSub minus
+    ]
+  , [ binaryOperator InfixN HiFunEquals         eq
+    , binaryOperator InfixN HiFunNotEquals      neq
+    , binaryOperator InfixN HiFunGreaterThan    ge
+    , binaryOperator InfixN HiFunLessThan       le
+    , binaryOperator InfixN HiFunNotLessThan    gt
+    , binaryOperator InfixN HiFunNotGreaterThan lt
+    ]
+  , [ binaryOperator InfixL HiFunAnd boolAnd
+    ]
+  , [ binaryOperator InfixL HiFunOr boolOr
+    ]
+  ]
+  where
+    binaryOperator operatorType function = operatorType . ((\a b -> apply function [a, b]) <$)
+
+parseBrackets :: HiParser HiExpr
+parseBrackets = open *> parseOperators <* close
 
 parseValue :: HiParser HiExpr
 parseValue = fmap HiExprValue $ parseFunction <|> parseNumeric <|> parseBool
 
-parseApplication :: HiParser (HiExpr -> HiExpr)
-parseApplication = do
-  void $ skipWhiteSpaces *> string "("
-  arguments <- optional $ do
-    firstArgument <- parseExpression
-    otherArguments <- many $ string "," *> parseExpression
-    return $ firstArgument : otherArguments
-  void $ skipWhiteSpaces *> string ")"
-  return $ \applier -> HiExprApply applier $ fromMaybe [] arguments
-
 parseFunction :: HiParser HiValue
 parseFunction = fmap HiValueFunction $
-  (string "add"              >> return HiFunAdd)            <|>
-  (string "sub"              >> return HiFunSub)            <|>
-  (string "mul"              >> return HiFunMul)            <|>
-  (string "div"              >> return HiFunDiv)            <|>
-  (string "not"              >> return HiFunNot)            <|>
-  (string "and"              >> return HiFunAnd)            <|>
-  (string "or"               >> return HiFunOr)             <|>
-  (string "equals"           >> return HiFunEquals)         <|>
-  (string "less-than"        >> return HiFunLessThan)       <|>
-  (string "greater-than"     >> return HiFunGreaterThan)    <|>
-  (string "not-equals"       >> return HiFunNotEquals)      <|>
-  (string "not-less-than"    >> return HiFunNotLessThan)    <|>
-  (string "not-greater-than" >> return HiFunNotGreaterThan) <|>
-  (string "if"               >> return HiFunIf)
+  (keyword "add"              >> return HiFunAdd)            <|>
+  (keyword "sub"              >> return HiFunSub)            <|>
+  (keyword "mul"              >> return HiFunMul)            <|>
+  (keyword "div"              >> return HiFunDiv)            <|>
+  (keyword "not"              >> return HiFunNot)            <|>
+  (keyword "and"              >> return HiFunAnd)            <|>
+  (keyword "or"               >> return HiFunOr)             <|>
+  (keyword "equals"           >> return HiFunEquals)         <|>
+  (keyword "less-than"        >> return HiFunLessThan)       <|>
+  (keyword "greater-than"     >> return HiFunGreaterThan)    <|>
+  (keyword "not-equals"       >> return HiFunNotEquals)      <|>
+  (keyword "not-less-than"    >> return HiFunNotLessThan)    <|>
+  (keyword "not-greater-than" >> return HiFunNotGreaterThan) <|>
+  (keyword "if"               >> return HiFunIf)
 
 parseNumeric :: HiParser HiValue
-parseNumeric = HiValueNumber . toRational <$> signed skipWhiteSpaces scientific
+parseNumeric = HiValueNumber <$> number
 
 parseBool :: HiParser HiValue
-parseBool = fmap HiValueBool $ (string "true" >> return True) <|> (string "false" >> return False)
-
-skipWhiteSpaces :: HiParser ()
-skipWhiteSpaces = space space1 (skipLineComment "//") (skipBlockComment "/*" "*/")
+parseBool = fmap HiValueBool $ (keyword "true" >> return True) <|> (keyword "false" >> return False)
