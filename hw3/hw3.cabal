@@ -17,29 +17,29 @@ cabal-version:       >=1.10
 tested-with:         GHC == 8.0.1
 
 library
-  hs-source-dirs:      src
-  exposed-modules:     HW3.Base
-                       HW3.Evaluator
-                       HW3.Parser
-                       HW3.Pretty
-  ghc-options:         -Wall
-  build-depends:       base >= 4.9 && < 5
-               ,       scientific
-               ,       megaparsec
-               ,       prettyprinter
-               ,       prettyprinter-ansi-terminal
+  hs-source-dirs:    src
+  exposed-modules:   HW3.Base
+                     HW3.Evaluator
+                     HW3.Parser
+                     HW3.Pretty
+  ghc-options:       -Wall
+  build-depends:     base >= 4.9 && < 5
+               ,     scientific
+               ,     megaparsec >= 9.0.1
+               ,     prettyprinter
+               ,     prettyprinter-ansi-terminal
 
-  default-language:    Haskell2010
+  default-language:  Haskell2010
 
 executable hi
-    hs-source-dirs:     src
-    main-is:            Main.hs
-    other-modules:      HW3.Base
-                        HW3.Evaluator
-                        HW3.Parser
-                        HW3.Pretty
-    build-depends:      base >= 4.9 && < 5
-                 ,       scientific
-                 ,       megaparsec
-                 ,       prettyprinter
-                 ,       prettyprinter-ansi-terminal
+    hs-source-dirs:  src
+    main-is:         Main.hs
+    other-modules:   HW3.Base
+                     HW3.Evaluator
+                     HW3.Parser
+                     HW3.Pretty
+    build-depends:   base >= 4.9 && < 5
+                 ,   scientific
+                 ,   megaparsec >= 9.0.1
+                 ,   prettyprinter
+                 ,   prettyprinter-ansi-terminal
