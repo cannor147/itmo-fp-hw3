@@ -19,6 +19,7 @@ tested-with:         GHC == 8.0.1
 library
   hs-source-dirs:    src
   exposed-modules:   HW3.Base
+                     HW3.Classes
                      HW3.Evaluator
                      HW3.Parser
                      HW3.Pretty
@@ -35,6 +36,7 @@ executable hi
     hs-source-dirs:  src
     main-is:         Main.hs
     other-modules:   HW3.Base
+                     HW3.Classes
                      HW3.Evaluator
                      HW3.Parser
                      HW3.Pretty
