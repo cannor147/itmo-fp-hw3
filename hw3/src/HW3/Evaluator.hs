@@ -84,6 +84,7 @@ instance Equalable Value Value where
   (#==#) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a == b
   (#==#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a == b
   (#==#) (Val (HiValueString a))   (Val (HiValueString b))   = fromBool $ a == b
+  (#==#) (Val HiValueNull)         (Val HiValueNull)         = fromBool True
   (#==#) hiError@(Er _)            _                         = hiError
   (#==#) _                         hiError@(Er _)            = hiError
   (#==#) _                         _                         = fromBool False
@@ -95,6 +96,7 @@ instance Comparable Value Value where
   (#<=#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a <= b
   (#<=#) (Val (HiValueBool _))     (Val (HiValueNumber _))   = fromBool True
   (#<=#) (Val (HiValueString a))   (Val (HiValueString b))   = fromBool $ a <= b
+  (#<=#) (Val HiValueNull)         (Val HiValueNull)         = fromBool True
   (#<=#) a                         b                         = er2 a b
 
 instance Conditional Value Value where
