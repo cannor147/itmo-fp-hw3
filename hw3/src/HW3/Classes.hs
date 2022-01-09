@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HW3.Classes
   ( Boolean(..)
@@ -78,37 +80,32 @@ class (Num b) => Indexable a b where
   (~$~) :: a -> b -> a
   (~|~) :: a -> b -> b -> a
 
-instance Indexable [a] Integer where
-  (~#~)     = toInteger . Prelude.length
-  (~$~) s i = [(!!) s x]
-    where
-      x = fromInteger i
-  (~|~) s i j = Prelude.take (y - x) (Prelude.drop x s)
-    where
-      x = fromInteger i
-      y = fromInteger j
+instance Indexable [a] Int where
+  (~#~)       = Prelude.length
+  (~$~) s i   = [(!!) s i]
+  (~|~) s i j = Prelude.take (j - i) (Prelude.drop i s)
 
-instance Indexable Text Integer where
-  (~#~)       = toInteger . Data.Text.length
-  (~$~) s i   = singleton $ index s x
-    where
-      x = fromInteger i
-  (~|~) s i j = Data.Text.take (y - x) (Data.Text.drop x s)
-    where
-      x = fromInteger i
-      y = fromInteger j
+instance Indexable Text Int where
+  (~#~)       = Data.Text.length
+  (~$~) s i   = singleton $ index s i
+  (~|~) s i j = Data.Text.take (j - i) (Data.Text.drop j s)
+
+instance Indexable a Int => Indexable a Integer where
+  (~#~) s     = toInteger ((~#~) s :: Int)
+  (~$~) s i   = (~$~) s (fromInteger i :: Int) 
+  (~|~) s i j = (~|~) s (fromInteger i :: Int)  (fromInteger j :: Int) 
 
 class (Num b, Indexable a b) => Viewable a b c where
   (~@~) :: a -> b -> c
-  fromElement :: c -> a
 
-instance Viewable [a] Integer a where
-  (~@~) s i     = (!!) s $ fromInteger i
-  fromElement x = [x]
+instance Viewable [a] Int a where
+  (~@~) = (!!)
 
-instance Viewable Text Integer Char where
-  (~@~) s i   = index s $ fromInteger i
-  fromElement = singleton
+instance Viewable Text Int Char where
+  (~@~) = index
+
+instance Viewable a Int b => Viewable a Integer b where
+  (~@~) s i = (~@~) s (fromInteger i :: Int)
 
 class Stringable a where
   (~^~), (~%~), (~~~) :: a -> a
