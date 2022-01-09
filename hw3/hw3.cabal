@@ -26,6 +26,7 @@ library
                      HW3.Pretty
   ghc-options:       -Wall
   build-depends:     base >= 4.9 && < 5
+               ,     text
                ,     scientific
                ,     megaparsec >= 9.0.1
                ,     parser-combinators
@@ -44,6 +45,7 @@ executable hi
                      HW3.Parser
                      HW3.Pretty
     build-depends:   base >= 4.9 && < 5
+                 ,   text
                  ,   scientific
                  ,   megaparsec >= 9.0.1
                  ,   parser-combinators

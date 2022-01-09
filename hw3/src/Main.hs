@@ -1,9 +1,9 @@
 module Main where
 
-import           Data.Either     (fromRight)
-import           HW3.Evaluator   (eval)
-import           HW3.Parser      (parse)
-import           HW3.Pretty      (prettyValue)
+import           Data.Either   (fromRight)
+import           HW3.Evaluator (eval)
+import           HW3.Parser    (parse)
+import           HW3.Pretty    (prettyValue)
 
 handle :: String -> IO ()
 handle text = do
@@ -70,4 +70,17 @@ main = do
     handle "2 + 3 * add(10, 4)"
     handle "add(10 - 4 * 2, 7)"
     handle " true&&( true&&false ) "
+    handle "length(\"Hello World\")"
+    handle "to-upper(\"Hello World\")"
+    handle "to-lower(\"Hello World\")"
+    handle "reverse(\"stressed\")"
+    handle "trim(\" Hello World \")"
+    handle "\"Hello\" + \"World\""
+    handle "\"Cat\" * 5"
+    handle "\"/home/user\" / \"hi\""
+    handle "\"\\\"\""
+    handle "\"Hello World\"(0)"
+    handle "\"Hello World\"(7)"
+    handle "\"Hello World\"(0, 5)"
+    handle "\"Hello World\"(2, 4)"
     handle ""

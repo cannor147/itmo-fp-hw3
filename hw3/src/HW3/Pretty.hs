@@ -3,15 +3,18 @@ module HW3.Pretty
   ) where
 
 import           Data.Scientific               (fromRationalRepetendUnlimited)
+import           Data.Text                     (Text)
 import           GHC.Real                      (Ratio (..))
 import           HW3.Base
-import           Prettyprinter                 (Doc, pretty, (<+>))
+import           Prettyprinter                 (Doc, pretty, viaShow, (<+>))
 import           Prettyprinter.Render.Terminal (AnsiStyle)
 
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
 prettyValue (HiValueNumber number)     = prettyNumber number
 prettyValue (HiValueBool bool)         = prettyBool bool
+prettyValue (HiValueString string)     = prettyString string
+prettyValue HiValueNull                = prettyNull
 
 prettyFunction :: HiFun -> Doc AnsiStyle
 prettyFunction HiFunAdd            = pretty "add"
@@ -28,6 +31,11 @@ prettyFunction HiFunNotLessThan    = pretty "not-equals"
 prettyFunction HiFunNotGreaterThan = pretty "not-less-than"
 prettyFunction HiFunNotEquals      = pretty "not-greater-than"
 prettyFunction HiFunIf             = pretty "if"
+prettyFunction HiFunLength         = pretty "length"
+prettyFunction HiFunToUpper        = pretty "to-upper"
+prettyFunction HiFunToLower        = pretty "to-lower"
+prettyFunction HiFunReverse        = pretty "reverse"
+prettyFunction HiFunTrim           = pretty "trim"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
@@ -42,3 +50,9 @@ prettyNumber number@(n :% m) = case snd $ fromRationalRepetendUnlimited number o
 prettyBool :: Bool -> Doc AnsiStyle
 prettyBool True  = pretty "true"
 prettyBool False = pretty "false"
+
+prettyString :: Text -> Doc AnsiStyle
+prettyString = viaShow
+
+prettyNull :: Doc AnsiStyle
+prettyNull = pretty "null"

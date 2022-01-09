@@ -17,13 +17,15 @@ module HW3.Lexer
   , close
   , comma
   , number
+  , string
   , keyword
   , parseFully
   ) where
 
+import           Data.Text                  (Text, pack)
 import           Data.Void                  (Void)
-import           Text.Megaparsec            (Parsec, eof, runParser)
-import           Text.Megaparsec.Char       (space1)
+import           Text.Megaparsec            (Parsec, eof, manyTill, runParser)
+import           Text.Megaparsec.Char       (char, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error      (ParseErrorBundle (..))
 
@@ -31,6 +33,7 @@ type HiLexer a = (Parsec Void String) a
 type HiSkip    = HiLexer ()
 type HiSymbol  = HiLexer String
 type HiNumber  = HiLexer Rational
+type HiString  = HiLexer Text
 
 parseFully :: HiLexer a -> String -> Either (ParseErrorBundle String Void) a
 parseFully parser = runParser (skipWhiteSpaces *> parser <* eof) mempty
@@ -82,6 +85,9 @@ comma = symbol ","
 
 number :: HiNumber
 number = toRational <$> lexeme (L.signed skipWhiteSpaces L.scientific)
+
+string :: HiString
+string = pack <$> lexeme (char '\"' *> manyTill L.charLiteral (char '\"'))
 
 keyword :: String -> HiSymbol
 keyword = lexeme . symbol

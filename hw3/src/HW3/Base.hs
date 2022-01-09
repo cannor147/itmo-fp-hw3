@@ -8,6 +8,8 @@ module HW3.Base
   , apply
   ) where
 
+import           Data.Text (Text)
+
 data HiFun = HiFunDiv
            | HiFunMul
            | HiFunAdd
@@ -22,11 +24,18 @@ data HiFun = HiFunDiv
            | HiFunNotLessThan
            | HiFunNotGreaterThan
            | HiFunIf
+           | HiFunLength
+           | HiFunToUpper
+           | HiFunToLower
+           | HiFunReverse
+           | HiFunTrim
   deriving (Show, Eq, Ord)
 
 data HiValue = HiValueNumber Rational
              | HiValueFunction HiFun
              | HiValueBool Bool
+             | HiValueNull
+             | HiValueString Text
   deriving Show
 
 data HiExpr = HiExprValue HiValue

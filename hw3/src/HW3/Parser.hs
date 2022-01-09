@@ -60,7 +60,12 @@ parseBrackets :: HiParser HiExpr
 parseBrackets = open *> parseOperators <* close
 
 parseValue :: HiParser HiExpr
-parseValue = fmap HiExprValue $ parseFunction <|> parseNumeric <|> parseBool
+parseValue = fmap HiExprValue $
+  parseFunction <|>
+  parseNumeric  <|>
+  parseBool     <|>
+  parseString   <|>
+  parseNull
 
 parseFunction :: HiParser HiValue
 parseFunction = fmap HiValueFunction $
@@ -77,10 +82,21 @@ parseFunction = fmap HiValueFunction $
   (keyword "not-equals"       >> return HiFunNotEquals)      <|>
   (keyword "not-less-than"    >> return HiFunNotLessThan)    <|>
   (keyword "not-greater-than" >> return HiFunNotGreaterThan) <|>
-  (keyword "if"               >> return HiFunIf)
+  (keyword "if"               >> return HiFunIf)             <|>
+  (keyword "length"           >> return HiFunLength)         <|>
+  (keyword "to-upper"         >> return HiFunToUpper)        <|>
+  (keyword "to-lower"         >> return HiFunToLower)        <|>
+  (keyword "reverse"          >> return HiFunReverse)        <|>
+  (keyword "trim"             >> return HiFunTrim)
 
 parseNumeric :: HiParser HiValue
 parseNumeric = HiValueNumber <$> number
 
 parseBool :: HiParser HiValue
 parseBool = fmap HiValueBool $ (keyword "true" >> return True) <|> (keyword "false" >> return False)
+
+parseString :: HiParser HiValue
+parseString = HiValueString <$> string
+
+parseNull :: HiParser HiValue
+parseNull = keyword "null" >> return HiValueNull
