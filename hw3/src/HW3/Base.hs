@@ -8,7 +8,8 @@ module HW3.Base
   , apply
   ) where
 
-import           Data.Text (Text)
+import           Data.Sequence (Seq)
+import           Data.Text     (Text)
 
 data HiFun = HiFunDiv
            | HiFunMul
@@ -29,6 +30,9 @@ data HiFun = HiFunDiv
            | HiFunToLower
            | HiFunReverse
            | HiFunTrim
+           | HiFunList
+           | HiFunRange
+           | HiFunFold
   deriving (Show, Eq, Ord)
 
 data HiValue = HiValueNumber Rational
@@ -36,6 +40,7 @@ data HiValue = HiValueNumber Rational
              | HiValueBool Bool
              | HiValueNull
              | HiValueString Text
+             | HiValueList (Seq HiValue)
   deriving Show
 
 data HiExpr = HiExprValue HiValue
@@ -46,6 +51,7 @@ data HiError = HiErrorInvalidArgument
              | HiErrorInvalidFunction
              | HiErrorArityMismatch
              | HiErrorDivideByZero
+             | HiErrorInvalidState
   deriving Show
 
 apply :: HiFun -> [HiExpr] -> HiExpr

@@ -3,11 +3,13 @@ module HW3.Pretty
   ) where
 
 import           Data.Scientific               (fromRationalRepetendUnlimited)
+import           Data.Sequence                 (Seq (..))
 import           Data.Text                     (Text)
 import           GHC.Real                      (Ratio (..))
 import           HW3.Base
-import           Prettyprinter                 (Doc, pretty, viaShow, (<+>))
+import           Prettyprinter                 (Doc, pretty, viaShow, (<+>), list)
 import           Prettyprinter.Render.Terminal (AnsiStyle)
+import Data.Foldable (toList)
 
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
@@ -15,6 +17,7 @@ prettyValue (HiValueNumber number)     = prettyNumber number
 prettyValue (HiValueBool bool)         = prettyBool bool
 prettyValue (HiValueString string)     = prettyString string
 prettyValue HiValueNull                = prettyNull
+prettyValue (HiValueList elements)     = prettyList elements
 
 prettyFunction :: HiFun -> Doc AnsiStyle
 prettyFunction HiFunAdd            = pretty "add"
@@ -36,6 +39,9 @@ prettyFunction HiFunToUpper        = pretty "to-upper"
 prettyFunction HiFunToLower        = pretty "to-lower"
 prettyFunction HiFunReverse        = pretty "reverse"
 prettyFunction HiFunTrim           = pretty "trim"
+prettyFunction HiFunList           = pretty "list"
+prettyFunction HiFunRange          = pretty "range"
+prettyFunction HiFunFold           = pretty "fold"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
@@ -56,3 +62,6 @@ prettyString = viaShow
 
 prettyNull :: Doc AnsiStyle
 prettyNull = pretty "null"
+
+prettyList :: Seq HiValue -> Doc AnsiStyle
+prettyList = list . toList . fmap prettyValue

@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -9,15 +9,16 @@ module HW3.Classes
   , Equalable(..)
   , Comparable(..)
   , Conditional(..)
+  , Sequenceable(..)
+  , Sliceable(..)
+  , Contentable(..)
   , Iterable(..)
-  , Multiplable(..)
-  , Indexable(..)
-  , Viewable(..)
   , Stringable(..)
   , (~/~)
   ) where
 
 import           Data.Semigroup (stimes)
+import           Data.Sequence
 import           Data.Text
 
 infixr 4 #==#, #!=#, #<=#, #>=#, #<#, #>#
@@ -54,70 +55,105 @@ instance (Eq a, Ord a) => Comparable a Bool where
 class (Boolean b) => Conditional a b where
   (#?:#) :: b -> a -> a -> a
 
-class Iterable a where
-  (~<~) :: a -> a
+class Sequenceable a where
+  (~~~) :: a
   (~+~) :: a -> a -> a
+  (~<~), (~>~) :: a -> a
+  (~>~) = id
 
-instance Iterable [a] where
+instance Sequenceable [a] where
+  (~~~) = []
   (~<~) = Prelude.reverse
   (~+~) = (<>)
 
-instance Iterable Text where
+instance Sequenceable (Seq a) where
+  (~~~) = Data.Sequence.empty
+  (~<~) = Data.Sequence.reverse
+  (~+~) = (<>)
+
+instance Sequenceable Text where
+  (~~~) = Data.Text.empty
   (~<~) = Data.Text.reverse
   (~+~) = (<>)
 
-class (Num b) => Multiplable a b where
-  (~*~) :: a -> b -> a
-
-instance Multiplable [a] Integer where
-  (~*~) = flip stimes
-
-instance Multiplable Text Integer where
-  (~*~) = flip stimes
-
-class (Num b) => Indexable a b where
+class Num b => Sliceable a b where
   (~#~) :: a -> b
-  (~$~) :: a -> b -> a
-  (~|~) :: a -> b -> b -> a
+  (~*~), (~^~), (~$~) :: a -> b -> a
+  (~!~) :: a -> b -> b -> a
+  (~!~) l i j = (l ~$~ i) ~^~ (j - i)
 
-instance Indexable [a] Int where
+instance Sliceable [a] Int where
   (~#~)       = Prelude.length
-  (~$~) s i   = [(!!) s i]
-  (~|~) s i j = Prelude.take (j - i) (Prelude.drop i s)
+  (~*~)       = flip stimes
+  (~^~)       = flip Prelude.take
+  (~$~)       = flip Prelude.drop
 
-instance Indexable Text Int where
+instance Sliceable (Seq a) Int where
+  (~#~)       = Prelude.length
+  (~*~)       = flip stimes
+  (~^~)       = flip Data.Sequence.take
+  (~$~)       = flip Data.Sequence.drop
+
+instance Sliceable Text Int where
   (~#~)       = Data.Text.length
-  (~$~) s i   = singleton $ index s i
-  (~|~) s i j = Data.Text.take (j - i) (Data.Text.drop j s)
+  (~*~)       = flip stimes
+  (~^~)       = flip Data.Text.take
+  (~$~)       = flip Data.Text.drop
 
-instance Indexable a Int => Indexable a Integer where
-  (~#~) s     = toInteger ((~#~) s :: Int)
-  (~$~) s i   = (~$~) s (fromInteger i :: Int) 
-  (~|~) s i j = (~|~) s (fromInteger i :: Int)  (fromInteger j :: Int) 
+instance Sliceable a Int => Sliceable a Integer where
+  (~#~)       = fromInt . (~#~)
+  (~*~) l i   = (~*~) l $ toInt i
+  (~^~) l i   = (~^~) l $ toInt i
+  (~$~) l i   = (~$~) l $ toInt i
 
-class (Num b, Indexable a b) => Viewable a b c where
+class Contentable a c where
+  (~&~) :: a -> c -> a
+  fromElement :: c -> a
+
+instance Contentable [a] a where
+  (~&~) l e     = l ++ [e]
+  fromElement e = [e]
+
+instance Contentable (Seq a) a where
+  (~&~)       = (|>)
+  fromElement = Data.Sequence.singleton
+
+instance Contentable Text Char where
+  (~&~)       = snoc
+  fromElement = Data.Text.singleton
+
+class (Sliceable a b, Contentable a c) => Iterable a b c where
   (~@~) :: a -> b -> c
 
-instance Viewable [a] Int a where
+instance Iterable [a] Int a where
   (~@~) = (!!)
 
-instance Viewable Text Int Char where
-  (~@~) = index
+instance Iterable (Seq a) Int a where
+  (~@~) = Data.Sequence.index
 
-instance Viewable a Int b => Viewable a Integer b where
-  (~@~) s i = (~@~) s (fromInteger i :: Int)
+instance Iterable Text Int Char where
+  (~@~) = Data.Text.index
+
+instance (Contentable a b, Iterable a Int b) => Iterable a Integer b where
+  (~@~) l i = (~@~) l $ toInt i
 
 class Stringable a where
-  (~^~), (~%~), (~~~) :: a -> a
+  (~|~), (~.~), (~-~) :: a -> a
   fromText :: Text -> a
   fromString :: String -> a
   fromString = fromText . pack
 
 instance Stringable Text where
-  (~^~)    = toUpper
-  (~%~)    = toLower
-  (~~~)    = strip
+  (~|~)    = toUpper
+  (~.~)    = toLower
+  (~-~)    = strip
   fromText = id
 
-(~/~) :: (Stringable a, Iterable a) => a -> a -> a
+(~/~) :: (Stringable a, Sequenceable a) => a -> a -> a
 (~/~) a b = (~+~) a $ (~+~) (fromString "/") b
+
+fromInt :: Int -> Integer
+fromInt = fromIntegral
+
+toInt :: Integer -> Int
+toInt = fromInteger

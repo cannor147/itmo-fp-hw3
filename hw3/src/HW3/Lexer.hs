@@ -15,6 +15,8 @@ module HW3.Lexer
   , boolOr
   , open
   , close
+  , openSquare
+  , closeSquare
   , comma
   , number
   , string
@@ -79,6 +81,12 @@ open = symbol "("
 
 close :: HiSymbol
 close = symbol ")"
+
+openSquare :: HiSymbol
+openSquare = symbol "["
+
+closeSquare :: HiSymbol
+closeSquare = symbol "]"
 
 comma :: HiSymbol
 comma = symbol ","

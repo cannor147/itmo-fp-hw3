@@ -1,3 +1,5 @@
+{-# LANGUAGE BlockArguments #-}
+
 module HW3.Parser
   ( parse
   ) where
@@ -18,23 +20,7 @@ parse :: String -> Either (ParseErrorBundle String Void) HiExpr
 parse = parseFully parseExpression
 
 parseExpression :: HiParser HiExpr
-parseExpression = parseOperators
-
-parseApplication :: HiParser HiExpr
-parseApplication = do
-  head' <- parseValue <|> parseBrackets
-  tail' <- many $ do
-    void open
-    arguments <- optional $ do
-      firstArgument  <- parseOperators
-      otherArguments <- many $ comma *> parseOperators
-      return $ firstArgument : otherArguments
-    void close
-    return $ \applier -> HiExprApply applier $ fromMaybe [] arguments
-  return $ foldl' (flip id) head' tail'
-
-parseOperators :: HiParser HiExpr
-parseOperators = makeExprParser (parseApplication <|> parseBrackets)
+parseExpression = makeExprParser (parseApplication <|> parseBrackets)
   [ [ binaryOperator InfixL HiFunMul asterisk
     , binaryOperator InfixL HiFunDiv slash
     ]
@@ -56,16 +42,30 @@ parseOperators = makeExprParser (parseApplication <|> parseBrackets)
   where
     binaryOperator operatorType function = operatorType . ((\a b -> apply function [a, b]) <$)
 
+parseApplication :: HiParser HiExpr
+parseApplication = do
+  head' <- parseValue <|> parseBrackets
+  tail' <- many $ do
+    void open
+    arguments <- optional $ do
+      firstArgument  <- parseExpression
+      otherArguments <- many $ comma *> parseExpression
+      return $ firstArgument : otherArguments
+    void close
+    return $ \applier -> HiExprApply applier $ fromMaybe [] arguments
+  return $ foldl' (flip id) head' tail'
+
 parseBrackets :: HiParser HiExpr
-parseBrackets = open *> parseOperators <* close
+parseBrackets = open *> parseExpression <* close
 
 parseValue :: HiParser HiExpr
-parseValue = fmap HiExprValue $
-  parseFunction <|>
-  parseNumeric  <|>
-  parseBool     <|>
-  parseString   <|>
-  parseNull
+parseValue =
+  HiExprValue <$> parseFunction <|>
+  HiExprValue <$> parseNumeric  <|>
+  HiExprValue <$> parseBool     <|>
+  HiExprValue <$> parseString   <|>
+  HiExprValue <$> parseNull     <|>
+  parseList
 
 parseFunction :: HiParser HiValue
 parseFunction = fmap HiValueFunction $
@@ -87,16 +87,29 @@ parseFunction = fmap HiValueFunction $
   (keyword "to-upper"         >> return HiFunToUpper)        <|>
   (keyword "to-lower"         >> return HiFunToLower)        <|>
   (keyword "reverse"          >> return HiFunReverse)        <|>
-  (keyword "trim"             >> return HiFunTrim)
+  (keyword "trim"             >> return HiFunTrim)           <|>
+  (keyword "list"             >> return HiFunList)           <|>
+  (keyword "range"            >> return HiFunRange)          <|>
+  (keyword "fold"             >> return HiFunFold)
 
 parseNumeric :: HiParser HiValue
-parseNumeric = HiValueNumber <$> number
+parseNumeric = fmap HiValueNumber number
 
 parseBool :: HiParser HiValue
 parseBool = fmap HiValueBool $ (keyword "true" >> return True) <|> (keyword "false" >> return False)
 
 parseString :: HiParser HiValue
-parseString = HiValueString <$> string
+parseString = fmap HiValueString string
 
 parseNull :: HiParser HiValue
 parseNull = keyword "null" >> return HiValueNull
+
+parseList :: HiParser HiExpr
+parseList = fmap (HiExprApply $ HiExprValue $ HiValueFunction HiFunList) do
+  void openSquare
+  arguments <- optional $ do
+    firstArgument  <- parseExpression
+    otherArguments <- many $ comma *> parseExpression
+    return $ firstArgument : otherArguments
+  void closeSquare
+  return $ fromMaybe [] arguments
