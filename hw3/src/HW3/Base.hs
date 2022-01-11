@@ -1,4 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module HW3.Base
   ( HiFun(..)
@@ -11,54 +14,74 @@ module HW3.Base
 import           Data.Sequence (Seq)
 import           Data.Text     (Text)
 import Data.Map.Internal (Map)
+import Data.ByteString (ByteString)
+import GHC.Generics (Generic)
+import Codec.Serialise (Serialise)
 
-data HiFun = HiFunDiv
-           | HiFunMul
-           | HiFunAdd
-           | HiFunSub
-           | HiFunNot
-           | HiFunAnd
-           | HiFunOr
-           | HiFunEquals
-           | HiFunLessThan
-           | HiFunGreaterThan
-           | HiFunNotEquals
-           | HiFunNotLessThan
-           | HiFunNotGreaterThan
-           | HiFunIf
-           | HiFunLength
-           | HiFunToUpper
-           | HiFunToLower
-           | HiFunReverse
-           | HiFunTrim
-           | HiFunList
-           | HiFunRange
-           | HiFunFold
-           | HiFunCount
-           | HiFunKeys
-           | HiFunValues
-           | HiFunInvert
+data HiFun =
+    HiFunDiv
+  | HiFunMul
+  | HiFunAdd
+  | HiFunSub
+  | HiFunNot
+  | HiFunAnd
+  | HiFunOr
+  | HiFunEquals
+  | HiFunLessThan
+  | HiFunGreaterThan
+  | HiFunNotEquals
+  | HiFunNotLessThan
+  | HiFunNotGreaterThan
+  | HiFunIf
+  | HiFunLength
+  | HiFunToUpper
+  | HiFunToLower
+  | HiFunReverse
+  | HiFunTrim
+  | HiFunList
+  | HiFunRange
+  | HiFunFold
+  | HiFunCount
+  | HiFunKeys
+  | HiFunValues
+  | HiFunInvert
+  | HiFunPackBytes
+  | HiFunUnpackBytes
+  | HiFunEncodeUtf8
+  | HiFunDecodeUtf8
+  | HiFunZip
+  | HiFunUnzip
+  | HiFunSerialise
+  | HiFunDeserialise
   deriving (Show, Eq, Ord)
+  deriving stock (Generic)
+  deriving anyclass (Serialise)
 
-data HiValue = HiValueNumber Rational
-             | HiValueFunction HiFun
-             | HiValueBool Bool
-             | HiValueNull
-             | HiValueString Text
-             | HiValueList (Seq HiValue)
-             | HiValueDict (Map HiValue HiValue)
+data HiValue =
+    HiValueFunction HiFun
+  | HiValueNumber Rational
+  | HiValueBool Bool
+  | HiValueString Text
+  | HiValueList (Seq HiValue)
+  | HiValueDict (Map HiValue HiValue)
+  | HiValueBytes ByteString
+  | HiValueNull
+  deriving Show
+  deriving stock (Generic)
+  deriving anyclass (Serialise)
+
+data HiExpr =
+    HiExprValue HiValue
+  | HiExprApply HiExpr [HiExpr]
+  | HiExprDict [(HiExpr, HiExpr)]
   deriving Show
 
-data HiExpr = HiExprValue HiValue
-            | HiExprApply HiExpr [HiExpr]
-            | HiExprDict [(HiExpr, HiExpr)]
-  deriving Show
-
-data HiError = HiErrorInvalidArgument
-             | HiErrorInvalidFunction
-             | HiErrorArityMismatch
-             | HiErrorDivideByZero
-             | HiErrorInvalidState
+data HiError =
+    HiErrorInvalidArgument
+  | HiErrorInvalidFunction
+  | HiErrorArityMismatch
+  | HiErrorDivideByZero
+  | HiErrorInvalidState
   deriving Show
 
 apply :: HiFun -> [HiExpr] -> HiExpr
@@ -86,6 +109,13 @@ cmp (HiValueDict _)     (HiValueBool _)     = LT
 cmp (HiValueDict _)     (HiValueString _)   = LT
 cmp (HiValueDict _)     (HiValueList _)     = LT
 cmp (HiValueDict a)     (HiValueDict b)     = compare a b
+cmp (HiValueBytes _)    (HiValueFunction _) = LT
+cmp (HiValueBytes _)    (HiValueNumber _)   = LT
+cmp (HiValueBytes _)    (HiValueBool _)     = LT
+cmp (HiValueBytes _)    (HiValueString _)   = LT
+cmp (HiValueBytes _)    (HiValueList _)     = LT
+cmp (HiValueBytes _)    (HiValueDict _)     = LT
+cmp (HiValueBytes a)    (HiValueBytes b)    = compare a b
 cmp _                   _                   = GT
 
 instance Eq HiValue where

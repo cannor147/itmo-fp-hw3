@@ -1,8 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module HW3.Classes
   ( Boolean(..)
@@ -17,9 +17,11 @@ module HW3.Classes
   , (~/~)
   ) where
 
-import           Data.Semigroup (stimes)
+import           Data.ByteString
+import           Data.Semigroup  (stimes)
 import           Data.Sequence
 import           Data.Text
+import           Data.Word       (Word8)
 
 infixr 4 #==#, #!=#, #<=#, #>=#, #<#, #>#
 infixr 3 #&&#
@@ -62,18 +64,23 @@ class Sequenceable a where
   (~>~) = id
 
 instance Sequenceable [a] where
-  (~~~) = []
+  (~~~) = mempty
   (~<~) = Prelude.reverse
   (~+~) = (<>)
 
 instance Sequenceable (Seq a) where
-  (~~~) = Data.Sequence.empty
+  (~~~) = mempty
   (~<~) = Data.Sequence.reverse
   (~+~) = (<>)
 
 instance Sequenceable Text where
-  (~~~) = Data.Text.empty
+  (~~~) = mempty
   (~<~) = Data.Text.reverse
+  (~+~) = (<>)
+
+instance Sequenceable ByteString where
+  (~~~) = mempty
+  (~<~) = Data.ByteString.reverse
   (~+~) = (<>)
 
 class Num b => Sliceable a b where
@@ -100,6 +107,12 @@ instance Sliceable Text Int where
   (~^~)       = flip Data.Text.take
   (~$~)       = flip Data.Text.drop
 
+instance Sliceable ByteString Int where
+  (~#~)       = Data.ByteString.length
+  (~*~)       = flip stimes
+  (~^~)       = flip Data.ByteString.take
+  (~$~)       = flip Data.ByteString.drop
+
 instance Sliceable a Int => Sliceable a Integer where
   (~#~)       = fromInt . (~#~)
   (~*~) l i   = (~*~) l $ toInt i
@@ -119,8 +132,12 @@ instance Contentable (Seq a) a where
   fromElement = Data.Sequence.singleton
 
 instance Contentable Text Char where
-  (~&~)       = snoc
+  (~&~)       = Data.Text.snoc
   fromElement = Data.Text.singleton
+
+instance Contentable ByteString Word8 where
+  (~&~)       = Data.ByteString.snoc
+  fromElement = Data.ByteString.singleton
 
 class (Sliceable a b, Contentable a c) => Iterable a b c where
   (~@~) :: a -> b -> c
@@ -134,6 +151,9 @@ instance Iterable (Seq a) Int a where
 instance Iterable Text Int Char where
   (~@~) = Data.Text.index
 
+instance Iterable ByteString Int Word8 where
+  (~@~) = Data.ByteString.index
+
 instance (Contentable a b, Iterable a Int b) => Iterable a Integer b where
   (~@~) l i = (~@~) l $ toInt i
 
@@ -141,7 +161,7 @@ class Stringable a where
   (~|~), (~.~), (~-~) :: a -> a
   fromText :: Text -> a
   fromString :: String -> a
-  fromString = fromText . pack
+  fromString = fromText . Data.Text.pack
 
 instance Stringable Text where
   (~|~)    = toUpper

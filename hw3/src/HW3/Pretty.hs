@@ -11,6 +11,10 @@ import           GHC.Real                      (Ratio (..))
 import           HW3.Base
 import           Prettyprinter
 import           Prettyprinter.Render.Terminal (AnsiStyle)
+import Data.ByteString (ByteString)
+import Data.ByteString.Internal (unpackBytes)
+import Numeric (showHex)
+import Data.Word (Word8)
 
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
@@ -20,6 +24,7 @@ prettyValue (HiValueString string)     = prettyString string
 prettyValue HiValueNull                = prettyNull
 prettyValue (HiValueList elements)     = HW3.Pretty.prettyList elements
 prettyValue (HiValueDict dict)         = prettyDict dict
+prettyValue (HiValueBytes bytes)       = prettyBytes bytes
 
 prettyFunction :: HiFun -> Doc AnsiStyle
 prettyFunction HiFunAdd            = pretty "add"
@@ -48,6 +53,14 @@ prettyFunction HiFunCount          = pretty "count"
 prettyFunction HiFunKeys           = pretty "keys"
 prettyFunction HiFunValues         = pretty "values"
 prettyFunction HiFunInvert         = pretty "invert"
+prettyFunction HiFunPackBytes      = pretty "pack-bytes"
+prettyFunction HiFunUnpackBytes    = pretty "unpack-bytes"
+prettyFunction HiFunEncodeUtf8     = pretty "encode-utf8"
+prettyFunction HiFunDecodeUtf8     = pretty "decode-utf8"
+prettyFunction HiFunZip            = pretty "zip"
+prettyFunction HiFunUnzip          = pretty "unzip"
+prettyFunction HiFunSerialise      = pretty "serialise"
+prettyFunction HiFunDeserialise    = pretty "deserialise"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
@@ -70,14 +83,23 @@ prettyNull :: Doc AnsiStyle
 prettyNull = pretty "null"
 
 prettyList :: Seq HiValue -> Doc AnsiStyle
-prettyList = list . Data.Foldable.toList . fmap prettyValue
+prettyList = prettyWith "[]" "[ " " ]" ", " . Data.Foldable.toList . fmap prettyValue
+
+prettyKeyValue :: (HiValue, HiValue) -> Doc AnsiStyle
+prettyKeyValue (x, y) = surround (pretty ": ") (prettyValue x) (prettyValue y)
 
 prettyDict :: Map HiValue HiValue -> Doc AnsiStyle
-prettyDict dict = case null dict of
-  True -> pretty "{}"
-  False -> group . encloseSep open close separator . fmap prettyKeyValue . Data.Map.toList $ dict
-    where
-      prettyKeyValue (x, y) = surround (pretty ": ") (prettyValue x) (prettyValue y)
-      open                  = flatAlt (pretty "{ ") (pretty "{ ")
-      close                 = flatAlt (pretty " }") (pretty " }")
-      separator             = pretty ", "
+prettyDict = prettyWith "{}" "{ " " }" ", " . fmap prettyKeyValue . Data.Map.toList
+
+prettyByte :: Word8 -> Doc AnsiStyle
+prettyByte = pretty . (\x -> if length x == 1 then "0" <> x else x) . flip showHex ""
+
+prettyBytes :: ByteString -> Doc AnsiStyle
+prettyBytes = prettyWith "[# #]" "[# " " #]" " " . fmap prettyByte . unpackBytes
+
+prettyWith :: String -> String -> String -> String -> [Doc AnsiStyle] -> Doc AnsiStyle
+prettyWith e o c s elements = if null elements then pretty e else prettyBody elements
+  where
+    prettyBody = group . encloseSep open close (pretty s)
+    open       = flatAlt (pretty o) (pretty o)
+    close      = flatAlt (pretty c) (pretty c)

@@ -19,11 +19,14 @@ module HW3.Lexer
   , closeSquare
   , openBrace
   , closeBrace
+  , openBytes
+  , closeBytes
   , comma
   , colon
   , dot
   , number
   , word
+  , byte
   , string
   , keyword
   , parseFully
@@ -31,8 +34,9 @@ module HW3.Lexer
 
 import           Data.Text                  (Text, pack)
 import           Data.Void                  (Void)
+import           Data.Word                  (Word8)
 import           Text.Megaparsec            (Parsec, eof, manyTill, runParser, some)
-import           Text.Megaparsec.Char       (char, space1, alphaNumChar)
+import           Text.Megaparsec.Char       (char, space1, alphaNumChar, hexDigitChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error      (ParseErrorBundle (..))
 
@@ -41,6 +45,7 @@ type HiSkip    = HiLexer ()
 type HiSymbol  = HiLexer String
 type HiNumber  = HiLexer Rational
 type HiString  = HiLexer Text
+type HiByte    = HiLexer Word8
 
 parseFully :: HiLexer a -> String -> Either (ParseErrorBundle String Void) a
 parseFully parser = runParser (skipWhiteSpaces *> parser <* eof) mempty
@@ -99,6 +104,12 @@ openBrace = symbol "{"
 closeBrace :: HiSymbol
 closeBrace = symbol "}"
 
+openBytes :: HiSymbol
+openBytes = symbol "[#"
+
+closeBytes :: HiSymbol
+closeBytes = symbol "#]"
+
 comma :: HiSymbol
 comma = symbol ","
 
@@ -119,6 +130,30 @@ keyword = lexeme . symbol
 
 word :: HiSymbol
 word = lexeme $ some alphaNumChar
+
+byte :: HiByte
+byte = lexeme $ do
+  x <- hexDigitChar
+  y <- hexDigitChar
+  return $ charToInt x * 16 + charToInt y
+    where
+      charToInt ch
+        | ch == '1'              = 1
+        | ch == '2'              = 2
+        | ch == '3'              = 3
+        | ch == '4'              = 4
+        | ch == '5'              = 5
+        | ch == '6'              = 6
+        | ch == '7'              = 7
+        | ch == '8'              = 8
+        | ch == '9'              = 9
+        | ch == 'A' || ch == 'a' = 10
+        | ch == 'B' || ch == 'b' = 11
+        | ch == 'C' || ch == 'c' = 12
+        | ch == 'D' || ch == 'd' = 13
+        | ch == 'E' || ch == 'e' = 14
+        | ch == 'F' || ch == 'f' = 15
+        | otherwise              = 0
 
 symbol :: String -> HiSymbol
 symbol = L.symbol skipWhiteSpaces

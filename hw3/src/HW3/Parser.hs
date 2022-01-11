@@ -8,12 +8,13 @@ import           Control.Monad                  (void)
 import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import           Data.Foldable                  (foldl')
 import           Data.Maybe                     (fromMaybe)
+import           Data.Text                      (pack)
 import           Data.Void                      (Void)
 import           HW3.Base
 import           HW3.Lexer
 import           Text.Megaparsec                (Parsec, many, optional, (<|>))
 import           Text.Megaparsec.Error          (ParseErrorBundle (..))
-import Data.Text (pack)
+import Data.ByteString.Internal (packBytes)
 
 type HiParser = Parsec Void String
 
@@ -67,7 +68,7 @@ parseBrackets :: HiParser HiExpr
 parseBrackets = open *> parseExpression <* close
 
 parseUnit :: HiParser HiExpr
-parseUnit = parseValue <|> parseList <|> parseDictionary
+parseUnit = parseValue <|> parseBytes <|> parseList <|> parseDictionary
 
 parseValue :: HiParser HiExpr
 parseValue = fmap HiExprValue $
@@ -104,7 +105,15 @@ parseFunction = fmap HiValueFunction $
   (keyword "count"            >> return HiFunCount)          <|>
   (keyword "keys"             >> return HiFunKeys)           <|>
   (keyword "values"           >> return HiFunValues)         <|>
-  (keyword "invert"           >> return HiFunInvert)
+  (keyword "invert"           >> return HiFunInvert)         <|>
+  (keyword "pack-bytes"       >> return HiFunPackBytes)      <|>
+  (keyword "unpack-bytes"     >> return HiFunUnpackBytes)    <|>
+  (keyword "encode-utf8"      >> return HiFunEncodeUtf8)     <|>
+  (keyword "decode-utf8"      >> return HiFunDecodeUtf8)     <|>
+  (keyword "zip"              >> return HiFunZip)            <|>
+  (keyword "unzip"            >> return HiFunUnzip)          <|>
+  (keyword "serialise"        >> return HiFunSerialise)      <|>
+  (keyword "deserialise"      >> return HiFunDeserialise)
 
 parseNumeric :: HiParser HiValue
 parseNumeric = fmap HiValueNumber number
@@ -127,6 +136,9 @@ parseList = fmap (HiExprApply $ HiExprValue $ HiValueFunction HiFunList) do
     return $ firstArgument : otherArguments
   void closeSquare
   return $ fromMaybe mempty arguments
+
+parseBytes :: HiParser HiExpr
+parseBytes = fmap (HiExprValue . HiValueBytes . packBytes) (openBytes *> many byte <* closeBytes)
 
 parseDictionary :: HiParser HiExpr
 parseDictionary = fmap HiExprDict do

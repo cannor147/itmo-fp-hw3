@@ -7,15 +7,22 @@ module HW3.Evaluator
   , evaluate
   ) where
 
-import           Control.Applicative (liftA2)
-import           Data.Foldable       (foldl', toList)
-import           Data.Map            (Map, empty, fromListWith, keys, singleton,
-                                      toList, lookup)
-import           Data.Sequence       (Seq (..), fromList)
-import           Data.Text           (Text, unpack)
-import           GHC.Real            (Ratio (..))
+import           Codec.Serialise
+import           Control.Applicative      (liftA2)
+import           Data.ByteString          (ByteString)
+import           Data.ByteString.Internal (unpackBytes)
+import qualified Data.ByteString.Lazy     as LazyByteString
+import           Data.Foldable            (foldl', toList)
+import           Data.Map                 (Map, empty, fromListWith, keys,
+                                           lookup, singleton, toList)
+import           Data.Sequence            (Seq (..), fromList)
+import           Data.Text                (Text, unpack)
+import           Data.Text.Encoding       (decodeUtf8', encodeUtf8)
+import           Data.Word                (Word8)
+import           GHC.Real                 (Ratio (..))
 import           HW3.Base
 import           HW3.Classes
+import Codec.Compression.Zlib
 
 eval :: Monad m => HiExpr -> m (Either HiError HiValue)
 eval expression = do
@@ -61,11 +68,23 @@ arithmetic2 _  a                       b                       = er2 a b
 fromChar :: Char -> Value
 fromChar = fromText . fromElement
 
+fromByte :: Word8 -> Value
+fromByte = fromBytes . fromElement
+
+fromByteInt :: Integer -> Value
+fromByteInt = fromByte . fromInteger
+
 fromSeq :: Seq HiValue -> Value
 fromSeq = Val . HiValueList
 
 fromDict :: Map HiValue HiValue -> Value
 fromDict = Val . HiValueDict
+
+fromBytes :: ByteString -> Value
+fromBytes = Val . HiValueBytes
+
+fromLazyBytes :: LazyByteString.ByteString -> Value
+fromLazyBytes = fromBytes . LazyByteString.toStrict
 
 hiNull :: Value
 hiNull = Val HiValueNull
@@ -75,10 +94,12 @@ instance Num Value where
   signum                                                  = arithmetic signum
   (+) a@(Val (HiValueString _)) b@(Val (HiValueString _)) = (~+~) a b
   (+) a@(Val (HiValueList _))   b@(Val (HiValueList _))   = (~+~) a b
+  (+) a@(Val (HiValueBytes _))  b@(Val (HiValueBytes _))  = (~+~) a b
   (+) a                         b                         = arithmetic2 (+) a b
   (-)                                                     = arithmetic2 (-)
   (*) a@(Val (HiValueString _)) b@(Val (HiValueNumber _)) = (~*~) a b
   (*) a@(Val (HiValueList _))   b@(Val (HiValueNumber _)) = (~*~) a b
+  (*) a@(Val (HiValueBytes _))  b@(Val (HiValueNumber _)) = (~*~) a b
   (*) a                         b                         = arithmetic2 (*) a b
   fromInteger                                             = Val . HiValueNumber . fromInteger
 
@@ -109,25 +130,31 @@ instance Conditional Value Value where
 
 instance Sequenceable Value where
   (~~~)                                                 = fromSeq (~~~)
-  (~<~) (Val (HiValueString a)) = fromText $ (~<~) a
-  (~<~) (Val (HiValueList a))   = fromSeq $ (~<~) a
+  (~<~) (Val (HiValueString a)) = fromText  $ (~<~) a
+  (~<~) (Val (HiValueList a))   = fromSeq   $ (~<~) a
+  (~<~) (Val (HiValueBytes a))  = fromBytes $ (~<~) a
   (~<~) a                       = er a
-  (~+~) (Val (HiValueString a)) (Val (HiValueString b)) = fromText $ (~+~) a b
-  (~+~) (Val (HiValueList a))   (Val (HiValueList b))   = fromSeq $ (~+~) a b
+  (~+~) (Val (HiValueString a)) (Val (HiValueString b)) = fromText  $ (~+~) a b
+  (~+~) (Val (HiValueList a))   (Val (HiValueList b))   = fromSeq   $ (~+~) a b
+  (~+~) (Val (HiValueBytes a))  (Val (HiValueBytes b))  = fromBytes $ (~+~) a b
   (~+~) a                       b                       = er2 a b
 
 instance Sliceable Value Value where
   (~#~) (Val (HiValueString a)) = fromInteger $ (~#~) a
   (~#~) (Val (HiValueList a))   = fromInteger $ (~#~) a
+  (~#~) (Val (HiValueBytes a))  = fromInteger $ (~#~) a
   (~#~) a                       = er a
-  (~*~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText $ (~*~) a b
-  (~*~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq $ (~*~) a b
+  (~*~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText  $ (~*~) a b
+  (~*~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq   $ (~*~) a b
+  (~*~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromBytes $ (~*~) a b
   (~*~) a                       b                              = er2 a b
-  (~^~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText $ (~^~) a b
-  (~^~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq $ (~^~) a b
+  (~^~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText  $ (~^~) a b
+  (~^~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq   $ (~^~) a b
+  (~^~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromBytes $ (~^~) a b
   (~^~) a                       b                              = er2 a b
-  (~$~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText $ (~$~) a b
-  (~$~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq $ (~$~) a b
+  (~$~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText  $ (~$~) a b
+  (~$~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq   $ (~$~) a b
+  (~$~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromBytes $ (~$~) a b
   (~$~) a                       b                              = er2 a b
 
 instance Contentable Value Value where
@@ -140,8 +167,9 @@ instance Iterable Value Value Value where
   (~@~) (Val (HiValueDict a))   (Val b)                        = maybe hiNull Val foundValue
     where
       foundValue = Data.Map.lookup b a
-  (~@~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromChar ((~@~) a b :: Char)
+  (~@~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromChar ((~@~) a b)
   (~@~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = Val $ (~@~) a b
+  (~@~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromByte ((~@~) a b)
   (~@~) a                       b                              = er2 a b
 
 instance Stringable Value where
@@ -166,9 +194,10 @@ toCountMap :: (Ord k, Foldable t) => t k -> Map k HiValue
 toCountMap a = HiValueNumber <$> fromListWith (+) (flip zip (repeat 1) $ Data.Foldable.toList a)
 
 (.#.) :: Value -> Value
-(.#.) (Val (HiValueList a))   = fromDict $ toCountMap a
-(.#.) (Val (HiValueString a)) = fromDict $ toCountMap $ HiValueString . fromElement <$> unpack a
-(.#.) a                     = er a
+(.#.) (Val (HiValueString a))  = fromDict $ toCountMap $ HiValueString . fromElement <$> unpack a
+(.#.) (Val (HiValueList a))    = fromDict $ toCountMap a
+(.#.) a@(Val (HiValueBytes _)) = (.#.) $ bytesToList a
+(.#.) a                        = er a
 
 (.!.) :: Value -> Value
 (.!.) (Val (HiValueDict a)) = fromDict $ fmap (HiValueList . fromList) inverseMap
@@ -189,17 +218,59 @@ fold (Val (HiValueFunction f)) (Val (HiValueList elements)) = do
   flip foldl1 values $ \a b -> a >>= \x -> b >>= \y -> case (x, y) of
     (Val i, Val j) -> evaluateFunction f [HiExprValue i, HiExprValue j]
     (i, j)         -> pure $ er2 i j
-fold a                          b                           = pure $ er2 a b
+fold a                         b                            = pure $ er2 a b
+
+bytesToList :: Value -> Value
+bytesToList (Val (HiValueBytes a)) = fromSeq $ fromList $ hiValueInteger <$> unpackBytes a
+  where
+    hiValueInteger = HiValueNumber . toRational . toInteger
+bytesToList a                      = er a
+
+listToBytes :: Value -> Value
+listToBytes (Val (HiValueList a)) = foldl' (~+~) (Val $ HiValueBytes mempty) $ fmap (toByte . Val) a
+  where
+    toByte b@(Val (HiValueNumber (n :% 1))) = if n >= 0 && n < 256 then fromByteInt n else er b
+    toByte b                                = er b
+listToBytes a                      = er a
+
+fromUtf8 :: Value -> Value
+fromUtf8 (Val (HiValueString a)) = fromBytes $ encodeUtf8 a
+fromUtf8 a                       = er a
+
+toUtf8 :: Value -> Value
+toUtf8 (Val (HiValueBytes a)) = either (const hiNull) fromText $ decodeUtf8' a
+toUtf8 a                      = er a
+
+valueToBytes :: Value -> Value
+valueToBytes (Val a) = fromBytes $ LazyByteString.toStrict $ serialise a
+valueToBytes hiError = hiError
+
+bytesToValue :: Value -> Value
+bytesToValue (Val (HiValueBytes a)) = Val $ deserialise $ LazyByteString.fromStrict a
+bytesToValue a                      = er a
+
+zip' :: Value -> Value
+zip' (Val (HiValueBytes a)) = fromLazyBytes $ compressWith params $ LazyByteString.fromStrict a
+  where
+    params = defaultCompressParams { compressLevel = bestCompression }
+zip' a                      = er a
+
+unzip' :: Value -> Value
+unzip' (Val (HiValueBytes a)) = fromLazyBytes $ decompressWith params $ LazyByteString.fromStrict a
+  where
+    params = defaultDecompressParams
+unzip' a                      = er a
 
 evaluate :: Monad m => HiExpr -> m Value
-evaluate (HiExprValue value)                                    = pure $ Val value
-evaluate (HiExprDict keyValues)                                 = evaluateDict keyValues
-evaluate (HiExprApply (HiExprValue (HiValueFunction fun)) args) = evaluateFunction fun args
-evaluate (HiExprApply str@(HiExprValue (HiValueString _)) args) = evaluateSlicing str args
-evaluate (HiExprApply list@(HiExprValue (HiValueList _)) args)  = evaluateSlicing list args
-evaluate (HiExprApply dict@(HiExprValue (HiValueDict _)) args)  = evaluateSlicing dict args
-evaluate (HiExprApply (HiExprValue _) _)                        = pure $ Er HiErrorInvalidFunction
-evaluate (HiExprApply expression arguments)                     = evaluate expression >>= \case
+evaluate (HiExprValue value)                                     = pure $ Val value
+evaluate (HiExprDict keyValues)                                  = evaluateDict keyValues
+evaluate (HiExprApply (HiExprValue (HiValueFunction fun)) args)  = evaluateFunction fun args
+evaluate (HiExprApply str@(HiExprValue (HiValueString _)) args)  = evaluateSlicing str args
+evaluate (HiExprApply list@(HiExprValue (HiValueList _)) args)   = evaluateSlicing list args
+evaluate (HiExprApply dict@(HiExprValue (HiValueDict _)) args)   = evaluateSlicing dict args
+evaluate (HiExprApply bytes@(HiExprValue (HiValueBytes _)) args) = evaluateSlicing bytes args
+evaluate (HiExprApply (HiExprValue _) _)                         = pure $ Er HiErrorInvalidFunction
+evaluate (HiExprApply expression arguments)                      = evaluate expression >>= \case
   Val hiValue -> evaluate $ HiExprApply (HiExprValue hiValue) arguments
   other       -> pure other
 
@@ -230,6 +301,14 @@ evaluateFunction HiFunCount          [x]       = evaluateUnaryFunction   (.#.)  
 evaluateFunction HiFunKeys           [x]       = evaluateUnaryFunction   (.^.)  x
 evaluateFunction HiFunValues         [x]       = evaluateUnaryFunction   (.$.)  x
 evaluateFunction HiFunInvert         [x]       = evaluateUnaryFunction   (.!.)  x
+evaluateFunction HiFunPackBytes      [x]       = evaluateUnaryFunction   listToBytes x
+evaluateFunction HiFunUnpackBytes    [x]       = evaluateUnaryFunction   bytesToList x
+evaluateFunction HiFunEncodeUtf8     [x]       = evaluateUnaryFunction   fromUtf8 x
+evaluateFunction HiFunDecodeUtf8     [x]       = evaluateUnaryFunction   toUtf8 x
+evaluateFunction HiFunZip            [x]       = evaluateUnaryFunction   zip' x
+evaluateFunction HiFunUnzip          [x]       = evaluateUnaryFunction   unzip' x
+evaluateFunction HiFunSerialise      [x]       = evaluateUnaryFunction   valueToBytes x
+evaluateFunction HiFunDeserialise    [x]       = evaluateUnaryFunction   bytesToValue x
 evaluateFunction _                   _         = pure $ Er HiErrorArityMismatch
 
 evaluateSlicing :: Monad m => HiExpr -> [HiExpr] -> m Value
