@@ -18,14 +18,17 @@ tested-with:         GHC == 8.0.1
 
 library
   hs-source-dirs:    src
-  exposed-modules:   HW3.Base
+  exposed-modules:   HW3.Action
+                     HW3.Base
                      HW3.Classes
                      HW3.Evaluator
                      HW3.Lexer
                      HW3.Parser
                      HW3.Pretty
+                     HW3.Value
   ghc-options:       -Wall
   build-depends:     base >= 4.9 && < 5
+               ,     mtl
                ,     text
                ,     containers
                ,     bytestring
@@ -36,19 +39,24 @@ library
                ,     prettyprinter-ansi-terminal
                ,     zlib
                ,     serialise
+               ,     directory
+               ,     haskeline
 
   default-language:  Haskell2010
 
 executable hi
     hs-source-dirs:  src
     main-is:         Main.hs
-    other-modules:   HW3.Base
+    other-modules:   HW3.Action
+                     HW3.Base
                      HW3.Classes
                      HW3.Evaluator
                      HW3.Lexer
                      HW3.Parser
                      HW3.Pretty
+                     HW3.Value
     build-depends:   base >= 4.9 && < 5
+                 ,   mtl
                  ,   text
                  ,   containers
                  ,   bytestring
@@ -59,3 +67,5 @@ executable hi
                  ,   prettyprinter-ansi-terminal
                  ,   zlib
                  ,   serialise
+                 ,   directory
+                 ,   haskeline

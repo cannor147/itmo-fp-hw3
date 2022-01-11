@@ -8,6 +8,8 @@ module HW3.Base
   , HiValue(..)
   , HiExpr(..)
   , HiError(..)
+  , HiAction(..)
+  , HiMonad(..)
   , apply
   ) where
 
@@ -53,7 +55,21 @@ data HiFun =
   | HiFunUnzip
   | HiFunSerialise
   | HiFunDeserialise
+  | HiFunRead
+  | HiFunWrite
+  | HiFunMkDir
+  | HiFunChDir
   deriving (Show, Eq, Ord)
+  deriving stock (Generic)
+  deriving anyclass (Serialise)
+
+data HiAction =
+    HiActionRead  FilePath
+  | HiActionWrite FilePath ByteString
+  | HiActionMkDir FilePath
+  | HiActionChDir FilePath
+  | HiActionCwd
+  deriving Show
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
@@ -66,6 +82,7 @@ data HiValue =
   | HiValueDict (Map HiValue HiValue)
   | HiValueBytes ByteString
   | HiValueNull
+  | HiValueAction HiAction
   deriving Show
   deriving stock (Generic)
   deriving anyclass (Serialise)
@@ -74,6 +91,7 @@ data HiExpr =
     HiExprValue HiValue
   | HiExprApply HiExpr [HiExpr]
   | HiExprDict [(HiExpr, HiExpr)]
+  | HiExprRun HiExpr
   deriving Show
 
 data HiError =
@@ -83,6 +101,9 @@ data HiError =
   | HiErrorDivideByZero
   | HiErrorInvalidState
   deriving Show
+
+class Monad m => HiMonad m where
+  runAction :: HiAction -> m HiValue
 
 apply :: HiFun -> [HiExpr] -> HiExpr
 apply = HiExprApply . HiExprValue . HiValueFunction

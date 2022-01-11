@@ -23,7 +23,9 @@ parse = parseFully parseExpression
 
 parseExpression :: HiParser HiExpr
 parseExpression = makeExprParser (parseApplication <|> parseBrackets)
-  [ [ InfixL ((\a b -> HiExprApply a [b]) <$ dot)
+  [ [ Postfix (HiExprRun <$ excl)
+    ]
+  , [ InfixL ((\a b -> HiExprApply a [b]) <$ dot)
     ]
   , [ binaryOperator InfixL HiFunMul asterisk
     , binaryOperator InfixL HiFunDiv slash
@@ -76,6 +78,7 @@ parseValue = fmap HiExprValue $
   parseNumeric  <|>
   parseBool     <|>
   parseString   <|>
+  parseAction   <|>
   parseNull
 
 parseFunction :: HiParser HiValue
@@ -113,7 +116,11 @@ parseFunction = fmap HiValueFunction $
   (keyword "zip"              >> return HiFunZip)            <|>
   (keyword "unzip"            >> return HiFunUnzip)          <|>
   (keyword "serialise"        >> return HiFunSerialise)      <|>
-  (keyword "deserialise"      >> return HiFunDeserialise)
+  (keyword "deserialise"      >> return HiFunDeserialise)    <|>
+  (keyword "read"             >> return HiFunRead)           <|>
+  (keyword "write"            >> return HiFunWrite)          <|>
+  (keyword "mkdir"            >> return HiFunMkDir)          <|>
+  (keyword "cd"               >> return HiFunChDir)
 
 parseNumeric :: HiParser HiValue
 parseNumeric = fmap HiValueNumber number
@@ -126,6 +133,9 @@ parseString = fmap HiValueString string
 
 parseNull :: HiParser HiValue
 parseNull = keyword "null" >> return HiValueNull
+
+parseAction :: HiParser HiValue
+parseAction = keyword "cwd" >> return (HiValueAction HiActionCwd)
 
 parseList :: HiParser HiExpr
 parseList = fmap (HiExprApply $ HiExprValue $ HiValueFunction HiFunList) do

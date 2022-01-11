@@ -24,6 +24,7 @@ module HW3.Lexer
   , comma
   , colon
   , dot
+  , excl
   , number
   , word
   , byte
@@ -118,6 +119,9 @@ colon = symbol ":"
 
 dot :: HiSymbol
 dot = symbol "."
+
+excl :: HiSymbol
+excl = symbol "!"
 
 number :: HiNumber
 number = toRational <$> lexeme (L.signed skipWhiteSpaces L.scientific)

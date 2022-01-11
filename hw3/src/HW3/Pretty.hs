@@ -20,11 +20,12 @@ prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
 prettyValue (HiValueNumber number)     = prettyNumber number
 prettyValue (HiValueBool bool)         = prettyBool bool
-prettyValue (HiValueString string)     = prettyString string
+prettyValue (HiValueString text)       = prettyText text
 prettyValue HiValueNull                = prettyNull
 prettyValue (HiValueList elements)     = HW3.Pretty.prettyList elements
 prettyValue (HiValueDict dict)         = prettyDict dict
 prettyValue (HiValueBytes bytes)       = prettyBytes bytes
+prettyValue (HiValueAction action)     = prettyAction action
 
 prettyFunction :: HiFun -> Doc AnsiStyle
 prettyFunction HiFunAdd            = pretty "add"
@@ -61,6 +62,10 @@ prettyFunction HiFunZip            = pretty "zip"
 prettyFunction HiFunUnzip          = pretty "unzip"
 prettyFunction HiFunSerialise      = pretty "serialise"
 prettyFunction HiFunDeserialise    = pretty "deserialise"
+prettyFunction HiFunRead           = pretty "read"
+prettyFunction HiFunWrite          = pretty "write"
+prettyFunction HiFunMkDir          = pretty "mkdir"
+prettyFunction HiFunChDir          = pretty "cd"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
@@ -76,8 +81,8 @@ prettyBool :: Bool -> Doc AnsiStyle
 prettyBool True  = pretty "true"
 prettyBool False = pretty "false"
 
-prettyString :: Text -> Doc AnsiStyle
-prettyString = viaShow
+prettyText :: Text -> Doc AnsiStyle
+prettyText = viaShow
 
 prettyNull :: Doc AnsiStyle
 prettyNull = pretty "null"
@@ -96,6 +101,18 @@ prettyByte = pretty . (\x -> if length x == 1 then "0" <> x else x) . flip showH
 
 prettyBytes :: ByteString -> Doc AnsiStyle
 prettyBytes = prettyWith "[# #]" "[# " " #]" " " . fmap prettyByte . unpackBytes
+
+prettyApply :: HiFun -> [Doc AnsiStyle] -> Doc AnsiStyle
+prettyApply f [a]    = prettyFunction f <> pretty "(" <> a <> pretty ")"
+prettyApply f [a, b] = prettyFunction f <> pretty "(" <> a <> pretty ", " <> b <> pretty ")"
+prettyApply _ _      = error "Unsupported prettifying for function with arguments."
+
+prettyAction :: HiAction -> Doc AnsiStyle
+prettyAction (HiActionRead path)        = prettyApply HiFunRead [viaShow path]
+prettyAction (HiActionWrite path bytes) = prettyApply HiFunWrite [viaShow path, prettyBytes bytes]
+prettyAction (HiActionMkDir path)       = prettyApply HiFunMkDir [viaShow path]
+prettyAction (HiActionChDir path)       = prettyApply HiFunChDir [viaShow path]
+prettyAction HiActionCwd                = pretty "cwd"
 
 prettyWith :: String -> String -> String -> String -> [Doc AnsiStyle] -> Doc AnsiStyle
 prettyWith e o c s elements = if null elements then pretty e else prettyBody elements
