@@ -1,24 +1,24 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances  #-}
 
 module HW3.Base
-  ( HiFun(..)
-  , HiValue(..)
-  , HiExpr(..)
+  ( HiAction(..)
   , HiError(..)
-  , HiAction(..)
+  , HiExpr(..)
+  , HiFun(..)
   , HiMonad(..)
+  , HiValue(..)
   , apply
   ) where
 
-import           Data.Sequence (Seq)
-import           Data.Text     (Text)
-import Data.Map.Internal (Map)
-import Data.ByteString (ByteString)
-import GHC.Generics (Generic)
-import Codec.Serialise (Serialise)
+import           Codec.Serialise   (Serialise)
+import           Data.ByteString   (ByteString)
+import           Data.Map.Internal (Map)
+import           Data.Sequence     (Seq)
+import           Data.Text         (Text)
+import           GHC.Generics      (Generic)
 
 data HiFun =
     HiFunDiv
@@ -69,21 +69,21 @@ data HiAction =
   | HiActionMkDir FilePath
   | HiActionChDir FilePath
   | HiActionCwd
-  deriving Show
+  deriving (Show, Eq, Ord)
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
 data HiValue =
     HiValueFunction HiFun
-  | HiValueNumber Rational
   | HiValueBool Bool
+  | HiValueNumber Rational
   | HiValueString Text
   | HiValueList (Seq HiValue)
   | HiValueDict (Map HiValue HiValue)
   | HiValueBytes ByteString
-  | HiValueNull
   | HiValueAction HiAction
-  deriving Show
+  | HiValueNull
+  deriving (Show, Eq, Ord)
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
@@ -92,7 +92,7 @@ data HiExpr =
   | HiExprApply HiExpr [HiExpr]
   | HiExprDict [(HiExpr, HiExpr)]
   | HiExprRun HiExpr
-  deriving Show
+  deriving (Show, Eq)
 
 data HiError =
     HiErrorInvalidArgument
@@ -100,47 +100,10 @@ data HiError =
   | HiErrorArityMismatch
   | HiErrorDivideByZero
   | HiErrorInvalidState
-  deriving Show
+  deriving (Show, Eq)
 
 class Monad m => HiMonad m where
   runAction :: HiAction -> m HiValue
 
 apply :: HiFun -> [HiExpr] -> HiExpr
 apply = HiExprApply . HiExprValue . HiValueFunction
-
-cmp :: HiValue -> HiValue -> Ordering
-cmp (HiValueFunction a) (HiValueFunction b) = compare a b
-cmp (HiValueNumber _)   (HiValueFunction _) = LT
-cmp (HiValueNumber a)   (HiValueNumber b)   = compare a b
-cmp (HiValueBool _)     (HiValueFunction _) = LT
-cmp (HiValueBool _)     (HiValueNumber _)   = LT
-cmp (HiValueBool a)     (HiValueBool b)     = compare a b
-cmp (HiValueString _)   (HiValueFunction _) = LT
-cmp (HiValueString _)   (HiValueNumber _)   = LT
-cmp (HiValueString _)   (HiValueBool _)     = LT
-cmp (HiValueString a)   (HiValueString b)   = compare a b
-cmp (HiValueList _)     (HiValueFunction _) = LT
-cmp (HiValueList _)     (HiValueNumber _)   = LT
-cmp (HiValueList _)     (HiValueBool _)     = LT
-cmp (HiValueList _)     (HiValueString _)   = LT
-cmp (HiValueList a)     (HiValueList b)     = compare a b
-cmp (HiValueDict _)     (HiValueFunction _) = LT
-cmp (HiValueDict _)     (HiValueNumber _)   = LT
-cmp (HiValueDict _)     (HiValueBool _)     = LT
-cmp (HiValueDict _)     (HiValueString _)   = LT
-cmp (HiValueDict _)     (HiValueList _)     = LT
-cmp (HiValueDict a)     (HiValueDict b)     = compare a b
-cmp (HiValueBytes _)    (HiValueFunction _) = LT
-cmp (HiValueBytes _)    (HiValueNumber _)   = LT
-cmp (HiValueBytes _)    (HiValueBool _)     = LT
-cmp (HiValueBytes _)    (HiValueString _)   = LT
-cmp (HiValueBytes _)    (HiValueList _)     = LT
-cmp (HiValueBytes _)    (HiValueDict _)     = LT
-cmp (HiValueBytes a)    (HiValueBytes b)    = compare a b
-cmp _                   _                   = GT
-
-instance Eq HiValue where
-  (==) a b = (==) EQ $ cmp a b
-
-instance Ord HiValue where
-  compare = cmp

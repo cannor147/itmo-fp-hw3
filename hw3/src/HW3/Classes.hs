@@ -6,13 +6,13 @@
 
 module HW3.Classes
   ( Boolean(..)
-  , Equalable(..)
   , Comparable(..)
   , Conditional(..)
+  , Contentable(..)
+  , Equalable(..)
+  , Iterable(..)
   , Sequenceable(..)
   , Sliceable(..)
-  , Contentable(..)
-  , Iterable(..)
   , Stringable(..)
   , (~/~)
   ) where

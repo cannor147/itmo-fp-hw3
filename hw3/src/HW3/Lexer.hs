@@ -1,42 +1,42 @@
 module HW3.Lexer
-  ( HiSkip
-  , HiLexer
+  ( HiLexer
+  , HiSkip
   , asterisk
-  , slash
-  , plus
-  , minus
-  , eq
-  , neq
-  , ge
-  , le
-  , gt
-  , lt
   , boolAnd
   , boolOr
-  , open
-  , close
-  , openSquare
-  , closeSquare
-  , openBrace
-  , closeBrace
-  , openBytes
-  , closeBytes
-  , comma
-  , colon
-  , dot
-  , excl
-  , number
-  , word
   , byte
-  , string
+  , close
+  , closeBrace
+  , closeBytes
+  , closeSquare
+  , colon
+  , comma
+  , dot
+  , eq
+  , excl
+  , ge
+  , gt
   , keyword
+  , le
+  , lt
+  , minus
+  , neq
+  , number
+  , open
+  , openBrace
+  , openBytes
+  , openSquare
   , parseFully
+  , plus
+  , slash
+  , string
+  , word
   ) where
 
 import           Data.Text                  (Text, pack)
 import           Data.Void                  (Void)
 import           Data.Word                  (Word8)
-import           Text.Megaparsec            (Parsec, eof, manyTill, runParser, some)
+import           Text.Megaparsec            (Parsec, eof, manyTill, runParser, some, notFollowedBy, try)
 import           Text.Megaparsec.Char       (char, space1, alphaNumChar, hexDigitChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error      (ParseErrorBundle (..))
@@ -55,7 +55,7 @@ asterisk :: HiSymbol
 asterisk = symbol "*"
 
 slash :: HiSymbol
-slash = symbol "/"
+slash = try $ symbol "/" <* notFollowedBy (symbol "=")
 
 plus :: HiSymbol
 plus = symbol "+"
@@ -138,7 +138,7 @@ word = lexeme $ some alphaNumChar
 byte :: HiByte
 byte = lexeme $ do
   x <- hexDigitChar
-  y <- hexDigitChar
+  y <- try hexDigitChar <* notFollowedBy hexDigitChar
   return $ charToInt x * 16 + charToInt y
     where
       charToInt ch

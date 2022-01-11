@@ -16,7 +16,7 @@ permissions :: Set HiPermission
 permissions = fromList [AllowRead, AllowWrite]
 
 main :: IO ()
-main = runInputT defaultSettings test
+main = runInputT defaultSettings loop
 
 loop :: InputT IO ()
 loop = getInputLine "hi> " >>= \case

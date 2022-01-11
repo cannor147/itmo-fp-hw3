@@ -2,19 +2,20 @@ module HW3.Pretty
   ( prettyValue
   ) where
 
+import           Data.ByteString               (ByteString)
+import           Data.ByteString.Internal      (unpackBytes)
 import           Data.Foldable                 (toList)
 import           Data.Map                      (Map, toList)
-import           Data.Scientific               (fromRationalRepetendUnlimited)
+import           Data.Scientific               (FPFormat (..), formatScientific,
+                                                fromRationalRepetendUnlimited)
 import           Data.Sequence                 (Seq (..))
 import           Data.Text                     (Text)
+import           Data.Word                     (Word8)
 import           GHC.Real                      (Ratio (..))
 import           HW3.Base
+import           Numeric                       (showHex)
 import           Prettyprinter
 import           Prettyprinter.Render.Terminal (AnsiStyle)
-import Data.ByteString (ByteString)
-import Data.ByteString.Internal (unpackBytes)
-import Numeric (showHex)
-import Data.Word (Word8)
 
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
@@ -35,12 +36,12 @@ prettyFunction HiFunDiv            = pretty "div"
 prettyFunction HiFunNot            = pretty "not"
 prettyFunction HiFunAnd            = pretty "and"
 prettyFunction HiFunOr             = pretty "or"
-prettyFunction HiFunLessThan       = pretty "equals"
-prettyFunction HiFunGreaterThan    = pretty "less-than"
-prettyFunction HiFunEquals         = pretty "greater-than"
-prettyFunction HiFunNotLessThan    = pretty "not-equals"
-prettyFunction HiFunNotGreaterThan = pretty "not-less-than"
-prettyFunction HiFunNotEquals      = pretty "not-greater-than"
+prettyFunction HiFunLessThan       = pretty "less-than"
+prettyFunction HiFunGreaterThan    = pretty "greater-than"
+prettyFunction HiFunEquals         = pretty "equals"
+prettyFunction HiFunNotLessThan    = pretty "not-less-than"
+prettyFunction HiFunNotGreaterThan = pretty "not-greater-than"
+prettyFunction HiFunNotEquals      = pretty "not-equals"
 prettyFunction HiFunIf             = pretty "if"
 prettyFunction HiFunLength         = pretty "length"
 prettyFunction HiFunToUpper        = pretty "to-upper"
@@ -69,9 +70,9 @@ prettyFunction HiFunChDir          = pretty "cd"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
-prettyNumber number@(n :% m) = case snd $ fromRationalRepetendUnlimited number of
-  Nothing -> pretty (fromRational number :: Double)
-  _       -> prettyFractional (quotRem n m)
+prettyNumber number@(n :% m) = case fromRationalRepetendUnlimited number of
+  (sc, Nothing) -> pretty (formatScientific Fixed Nothing sc)
+  _             -> prettyFractional (quotRem n m)
     where
       prettyFractional (0, y) = pretty (show y <> "/" <> show m)
       prettyFractional (x, y) = pretty x <+> pretty (sign y) <+> prettyFractional (0, abs y)
@@ -88,13 +89,13 @@ prettyNull :: Doc AnsiStyle
 prettyNull = pretty "null"
 
 prettyList :: Seq HiValue -> Doc AnsiStyle
-prettyList = prettyWith "[]" "[ " " ]" ", " . Data.Foldable.toList . fmap prettyValue
+prettyList = prettyWith "[ ]" "[ " " ]" ", " . Data.Foldable.toList . fmap prettyValue
 
 prettyKeyValue :: (HiValue, HiValue) -> Doc AnsiStyle
 prettyKeyValue (x, y) = surround (pretty ": ") (prettyValue x) (prettyValue y)
 
 prettyDict :: Map HiValue HiValue -> Doc AnsiStyle
-prettyDict = prettyWith "{}" "{ " " }" ", " . fmap prettyKeyValue . Data.Map.toList
+prettyDict = prettyWith "{ }" "{ " " }" ", " . fmap prettyKeyValue . Data.Map.toList
 
 prettyByte :: Word8 -> Doc AnsiStyle
 prettyByte = pretty . (\x -> if length x == 1 then "0" <> x else x) . flip showHex ""

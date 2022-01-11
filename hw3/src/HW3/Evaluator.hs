@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE LambdaCase #-}
 
 module HW3.Evaluator
   ( eval
@@ -32,6 +32,7 @@ evaluate (HiExprApply expression arguments)                      = evaluate expr
   Val hiValue -> evaluate $ HiExprApply (HiExprValue hiValue) arguments
   other       -> pure other
 evaluate (HiExprRun (HiExprValue (HiValueAction action)))        = Val <$> runAction action
+evaluate (HiExprRun (HiExprValue _))                             = pure $ Val HiValueNull
 evaluate (HiExprRun expression)                                  = evaluate expression >>= \case
   Val hiValue -> evaluate $ HiExprRun $ HiExprValue hiValue
   other       -> pure other
@@ -44,11 +45,11 @@ evaluateFunction HiFunDiv            [x, y]    = evaluateBinaryFunction  (/)    
 evaluateFunction HiFunNot            [x]       = evaluateUnaryFunction   (#!#)  x
 evaluateFunction HiFunAnd            [x, y]    = evaluateBinaryFunction  (#&&#) x y
 evaluateFunction HiFunOr             [x, y]    = evaluateBinaryFunction  (#||#) x y
-evaluateFunction HiFunLessThan       [x, y]    = evaluateBinaryFunction  (#<=#) x y
-evaluateFunction HiFunGreaterThan    [x, y]    = evaluateBinaryFunction  (#>=#) x y
+evaluateFunction HiFunLessThan       [x, y]    = evaluateBinaryFunction  (#<#)  x y
+evaluateFunction HiFunGreaterThan    [x, y]    = evaluateBinaryFunction  (#>#)  x y
 evaluateFunction HiFunEquals         [x, y]    = evaluateBinaryFunction  (#==#) x y
-evaluateFunction HiFunNotLessThan    [x, y]    = evaluateBinaryFunction  (#>#)  x y
-evaluateFunction HiFunNotGreaterThan [x, y]    = evaluateBinaryFunction  (#<#)  x y
+evaluateFunction HiFunNotLessThan    [x, y]    = evaluateBinaryFunction  (#>=#) x y
+evaluateFunction HiFunNotGreaterThan [x, y]    = evaluateBinaryFunction  (#<=#) x y
 evaluateFunction HiFunNotEquals      [x, y]    = evaluateBinaryFunction  (#!=#) x y
 evaluateFunction HiFunIf             [x, y, z] = evaluateTernaryFunction (#?:#) x y z
 evaluateFunction HiFunLength         [x]       = evaluateUnaryFunction   (~#~)  x

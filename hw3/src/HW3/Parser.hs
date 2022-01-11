@@ -12,7 +12,7 @@ import           Data.Text                      (pack)
 import           Data.Void                      (Void)
 import           HW3.Base
 import           HW3.Lexer
-import           Text.Megaparsec                (Parsec, many, optional, (<|>))
+import           Text.Megaparsec                (Parsec, many, optional, (<|>), some)
 import           Text.Megaparsec.Error          (ParseErrorBundle (..))
 import Data.ByteString.Internal (packBytes)
 
@@ -21,9 +21,13 @@ type HiParser = Parsec Void String
 parse :: String -> Either (ParseErrorBundle String Void) HiExpr
 parse = parseFully parseExpression
 
+constructRuns :: (Eq t, Num t) => t -> HiExpr -> HiExpr
+constructRuns 0 a = a
+constructRuns n a = HiExprRun $ constructRuns (n - 1) a
+
 parseExpression :: HiParser HiExpr
 parseExpression = makeExprParser (parseApplication <|> parseBrackets)
-  [ [ Postfix (HiExprRun <$ excl)
+  [ [ Postfix (constructRuns . length <$> some excl)
     ]
   , [ InfixL ((\a b -> HiExprApply a [b]) <$ dot)
     ]
@@ -40,9 +44,9 @@ parseExpression = makeExprParser (parseApplication <|> parseBrackets)
     , binaryOperator InfixN HiFunNotLessThan    gt
     , binaryOperator InfixN HiFunNotGreaterThan lt
     ]
-  , [ binaryOperator InfixL HiFunAnd boolAnd
+  , [ binaryOperator InfixR HiFunAnd boolAnd
     ]
-  , [ binaryOperator InfixL HiFunOr boolOr
+  , [ binaryOperator InfixR HiFunOr boolOr
     ]
   ]
   where
@@ -83,6 +87,9 @@ parseValue = fmap HiExprValue $
 
 parseFunction :: HiParser HiValue
 parseFunction = fmap HiValueFunction $
+  (keyword "not-equals"       >> return HiFunNotEquals)      <|>
+  (keyword "not-less-than"    >> return HiFunNotLessThan)    <|>
+  (keyword "not-greater-than" >> return HiFunNotGreaterThan) <|>
   (keyword "add"              >> return HiFunAdd)            <|>
   (keyword "sub"              >> return HiFunSub)            <|>
   (keyword "mul"              >> return HiFunMul)            <|>
@@ -93,9 +100,6 @@ parseFunction = fmap HiValueFunction $
   (keyword "equals"           >> return HiFunEquals)         <|>
   (keyword "less-than"        >> return HiFunLessThan)       <|>
   (keyword "greater-than"     >> return HiFunGreaterThan)    <|>
-  (keyword "not-equals"       >> return HiFunNotEquals)      <|>
-  (keyword "not-less-than"    >> return HiFunNotLessThan)    <|>
-  (keyword "not-greater-than" >> return HiFunNotGreaterThan) <|>
   (keyword "if"               >> return HiFunIf)             <|>
   (keyword "length"           >> return HiFunLength)         <|>
   (keyword "to-upper"         >> return HiFunToUpper)        <|>

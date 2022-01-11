@@ -1,6 +1,33 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module HW3.Value where
+module HW3.Value 
+  ( Value(..)
+  , UnaryOperator
+  , BinaryOperator
+  , TernaryOperator
+  , (.!.)
+  , (.#.)
+  , (.^.)
+  , (.+.)
+  , (.$.)
+  , bytesToList
+  , bytesToValue
+  , cd'
+  , er
+  , er2
+  , fold
+  , fromDict
+  , fromUtf8
+  , listToBytes
+  , mkdir'
+  , range
+  , read'
+  , toUtf8
+  , unzip'
+  , valueToBytes
+  , write'
+  , zip'
+  ) where
 
 import           Codec.Compression.Zlib
 import           Codec.Serialise
@@ -44,10 +71,6 @@ string :: (Text -> Text) -> UnaryOperator
 string op (Val (HiValueString a)) = Val $ HiValueString $ op a
 string _  a                       = er a
 
-boolean2 :: (Bool -> Bool -> Bool) -> BinaryOperator
-boolean2 op (Val (HiValueBool a)) (Val (HiValueBool b)) = Val $ HiValueBool $ op a b
-boolean2 _  a                     b                     = er2 a b
-
 arithmetic2 :: (Rational -> Rational -> Rational) -> BinaryOperator
 arithmetic2 op (Val (HiValueNumber a)) (Val (HiValueNumber b)) = Val $ HiValueNumber $ op a b
 arithmetic2 _  a                       b                       = er2 a b
@@ -56,10 +79,10 @@ fromChar :: Char -> Value
 fromChar = fromText . fromElement
 
 fromByte :: Word8 -> Value
-fromByte = fromBytes . fromElement
+fromByte = fromInteger . toInteger
 
 fromByteInt :: Integer -> Value
-fromByteInt = fromByte . fromInteger
+fromByteInt = fromBytes . fromElement . (fromInteger :: Integer -> Word8)
 
 fromSeq :: Seq HiValue -> Value
 fromSeq = Val . HiValueList
@@ -100,10 +123,14 @@ instance Fractional Value where
   fromRational                                            = Val . HiValueNumber
 
 instance Boolean Value where
-  (#&&#)   = boolean2 (&&)
-  (#||#)   = boolean2 (||)
-  (#!#)    = boolean not
-  fromBool = Val . HiValueBool
+  (#&&#) (Val (HiValueBool False)) _ = Val $ HiValueBool False
+  (#&&#) (Val HiValueNull)         _ = Val HiValueNull
+  (#&&#) _                         b = b
+  (#||#) (Val (HiValueBool False)) b = b
+  (#||#) (Val HiValueNull)         b = b
+  (#||#) a                         _ = a
+  (#!#)                              = boolean not
+  fromBool                           = Val . HiValueBool
 
 instance Equalable Value Value where
   (#==#) (Val a) (Val b) = fromBool $ a == b
@@ -129,14 +156,17 @@ instance Sequenceable Value where
   (~+~) (Val (HiValueBytes a))  (Val (HiValueBytes b))  = fromBytes $ (~+~) a b
   (~+~) a                       b                       = er2 a b
 
+negEr :: (Ord a, Num a) => a -> Value -> Value
+negEr a b = if a <= 0 then Er HiErrorInvalidArgument else b
+
 instance Sliceable Value Value where
   (~#~) (Val (HiValueString a)) = fromInteger $ (~#~) a
   (~#~) (Val (HiValueList a))   = fromInteger $ (~#~) a
   (~#~) (Val (HiValueBytes a))  = fromInteger $ (~#~) a
   (~#~) a                       = er a
-  (~*~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText  $ (~*~) a b
-  (~*~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq   $ (~*~) a b
-  (~*~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromBytes $ (~*~) a b
+  (~*~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = negEr b $ fromText  $ (~*~) a b
+  (~*~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = negEr b $ fromSeq   $ (~*~) a b
+  (~*~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = negEr b $ fromBytes $ (~*~) a b
   (~*~) a                       b                              = er2 a b
   (~^~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromText  $ (~^~) a b
   (~^~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = fromSeq   $ (~^~) a b
@@ -153,13 +183,16 @@ instance Contentable Value Value where
   fromElement (Val a)        = fromSeq $ fromElement a
   fromElement hiError@(Er _) = hiError
 
+indexSafely :: (Ord b, Iterable a b t) => a -> b -> (t -> Value) -> Value
+indexSafely a b c = if b < 0 || b >= (~#~) a then hiNull else c $ (~@~) a b
+
 instance Iterable Value Value Value where
   (~@~) (Val (HiValueDict a))   (Val b)                        = maybe hiNull Val foundValue
     where
       foundValue = Data.Map.lookup b a
-  (~@~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromChar ((~@~) a b)
-  (~@~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = Val $ (~@~) a b
-  (~@~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = fromByte ((~@~) a b)
+  (~@~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = indexSafely a b fromChar 
+  (~@~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = indexSafely a b Val
+  (~@~) (Val (HiValueBytes a))  (Val (HiValueNumber (b :% 1))) = indexSafely a b fromByte
   (~@~) a                       b                              = er2 a b
 
 instance Stringable Value where

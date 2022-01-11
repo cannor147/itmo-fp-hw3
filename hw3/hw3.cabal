@@ -47,14 +47,6 @@ library
 executable hi
     hs-source-dirs:  src
     main-is:         Main.hs
-    other-modules:   HW3.Action
-                     HW3.Base
-                     HW3.Classes
-                     HW3.Evaluator
-                     HW3.Lexer
-                     HW3.Parser
-                     HW3.Pretty
-                     HW3.Value
     build-depends:   base >= 4.9 && < 5
                  ,   mtl
                  ,   text
@@ -69,3 +61,4 @@ executable hi
                  ,   serialise
                  ,   directory
                  ,   haskeline
+                 ,   hw3

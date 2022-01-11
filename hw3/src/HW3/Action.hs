@@ -3,8 +3,8 @@
 
 module HW3.Action
   ( HiPermission(..)
-  , PermissionException(..)
   , HIO(..)
+  , PermissionException(..)
   ) where
 
 import           Control.Exception    (Exception, throwIO)
@@ -20,8 +20,8 @@ import           System.Directory     (createDirectory, doesFileExist,
                                        getCurrentDirectory, listDirectory,
                                        setCurrentDirectory)
 
-data HiPermission = AllowRead | AllowWrite
-  deriving (Show, Eq, Ord)
+data HiPermission = AllowRead | AllowWrite | AllowTime
+  deriving (Show, Eq, Ord, Enum, Bounded)
 
 newtype PermissionException = PermissionRequired HiPermission
   deriving Show
