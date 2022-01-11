@@ -17,6 +17,7 @@ import           Numeric                       (showHex)
 import           Prettyprinter
 import           Prettyprinter.Render.Terminal (AnsiStyle)
 
+-- | Prettifies hi expression.
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
 prettyValue (HiValueNumber number)     = prettyNumber number

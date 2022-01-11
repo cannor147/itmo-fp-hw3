@@ -20,14 +20,17 @@ import           System.Directory     (createDirectory, doesFileExist,
                                        getCurrentDirectory, listDirectory,
                                        setCurrentDirectory)
 
+-- | Permissions for runnable expressions.
 data HiPermission = AllowRead | AllowWrite | AllowTime
   deriving (Show, Eq, Ord, Enum, Bounded)
 
+-- | Permission exception if there were actions without permissions.
 newtype PermissionException = PermissionRequired HiPermission
   deriving Show
 
 instance Exception PermissionException
 
+-- | Monad for evaluating hi IO actions.
 newtype HIO a = HIO { runHIO :: Set HiPermission -> IO a }
   deriving (Functor, Applicative, Monad) via (ReaderT (Set HiPermission) IO)
 

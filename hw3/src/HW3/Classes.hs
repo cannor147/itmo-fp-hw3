@@ -27,6 +27,7 @@ infixr 4 #==#, #!=#, #<=#, #>=#, #<#, #>#
 infixr 3 #&&#
 infixr 2 #||#
 
+-- | Analogue for Bool.
 class Boolean a where
   (#&&#), (#||#) :: a -> a -> a
   (#!#) :: a -> a
@@ -38,6 +39,7 @@ instance Boolean Bool where
   (#!#)    = not
   fromBool = id
 
+-- | Analogue for Eq.
 class (Boolean b) => Equalable a b where
   (#==#), (#!=#) :: a -> a -> b
   x #!=# y = (#!#) $ x #==# y
@@ -45,6 +47,7 @@ class (Boolean b) => Equalable a b where
 instance (Eq a) => Equalable a Bool where
   (#==#) = (==)
 
+-- | Analogue for Ord.
 class (Equalable a b, Boolean b) => Comparable a b where
   (#<=#), (#>=#), (#<#), (#>#) :: a -> a -> b
   x #<# y  = (x #!=# y) #&&# (x #<=# y)
@@ -54,9 +57,11 @@ class (Equalable a b, Boolean b) => Comparable a b where
 instance (Eq a, Ord a) => Comparable a Bool where
   (#<=#) = (<=)
 
+-- | Class that supports if statement.
 class (Boolean b) => Conditional a b where
   (#?:#) :: b -> a -> a -> a
 
+-- | Analogue for Monoid with reverse.
 class Sequenceable a where
   (~~~) :: a
   (~+~) :: a -> a -> a
@@ -83,6 +88,7 @@ instance Sequenceable ByteString where
   (~<~) = Data.ByteString.reverse
   (~+~) = (<>)
 
+-- | Class that supports slices.
 class Num b => Sliceable a b where
   (~#~) :: a -> b
   (~*~), (~^~), (~$~) :: a -> b -> a
@@ -119,6 +125,7 @@ instance Sliceable a Int => Sliceable a Integer where
   (~^~) l i   = (~^~) l $ toInt i
   (~$~) l i   = (~$~) l $ toInt i
 
+-- | Class that has content.
 class Contentable a c where
   (~&~) :: a -> c -> a
   fromElement :: c -> a
@@ -139,6 +146,7 @@ instance Contentable ByteString Word8 where
   (~&~)       = Data.ByteString.snoc
   fromElement = Data.ByteString.singleton
 
+-- | Analogue for List.
 class (Sliceable a b, Contentable a c) => Iterable a b c where
   (~@~) :: a -> b -> c
 
@@ -157,6 +165,7 @@ instance Iterable ByteString Int Word8 where
 instance (Contentable a b, Iterable a Int b) => Iterable a Integer b where
   (~@~) l i = (~@~) l $ toInt i
 
+-- | Analogue for String.
 class Stringable a where
   (~|~), (~.~), (~-~) :: a -> a
   fromText :: Text -> a
@@ -169,6 +178,7 @@ instance Stringable Text where
   (~-~)    = strip
   fromText = id
 
+-- | Concatenates two strings and separates them with slash.
 (~/~) :: (Stringable a, Sequenceable a) => a -> a -> a
 (~/~) a b = (~+~) a $ (~+~) (fromString "/") b
 

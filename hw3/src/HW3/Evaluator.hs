@@ -12,6 +12,7 @@ import           HW3.Base
 import           HW3.Classes
 import           HW3.Value
 
+-- | Evaluates hi expression.
 eval :: HiMonad m => HiExpr -> m (Either HiError HiValue)
 eval expression = do
   evaluationResult <- evaluate expression
@@ -19,6 +20,7 @@ eval expression = do
     Er  hiError -> Left hiError
     Val hiValue -> Right hiValue
 
+-- | Evaluates hi expression into Value.
 evaluate :: HiMonad m => HiExpr -> m Value
 evaluate (HiExprValue value)                                     = pure $ Val value
 evaluate (HiExprDict keyValues)                                  = evaluateDict keyValues

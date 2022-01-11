@@ -18,6 +18,7 @@ import Data.ByteString.Internal (packBytes)
 
 type HiParser = Parsec Void String
 
+-- | Parses hi expression.
 parse :: String -> Either (ParseErrorBundle String Void) HiExpr
 parse = parseFully parseExpression
 

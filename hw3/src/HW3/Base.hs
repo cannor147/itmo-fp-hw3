@@ -20,6 +20,7 @@ import           Data.Sequence     (Seq)
 import           Data.Text         (Text)
 import           GHC.Generics      (Generic)
 
+-- | Hi function.
 data HiFun =
     HiFunDiv
   | HiFunMul
@@ -63,6 +64,7 @@ data HiFun =
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
+-- | Hi action.
 data HiAction =
     HiActionRead  FilePath
   | HiActionWrite FilePath ByteString
@@ -73,6 +75,7 @@ data HiAction =
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
+-- | Hi primitives.
 data HiValue =
     HiValueFunction HiFun
   | HiValueBool Bool
@@ -87,6 +90,7 @@ data HiValue =
   deriving stock (Generic)
   deriving anyclass (Serialise)
 
+-- | Hi expressions.
 data HiExpr =
     HiExprValue HiValue
   | HiExprApply HiExpr [HiExpr]
@@ -94,6 +98,7 @@ data HiExpr =
   | HiExprRun HiExpr
   deriving (Show, Eq)
 
+-- | Hi errors.
 data HiError =
     HiErrorInvalidArgument
   | HiErrorInvalidFunction
@@ -102,8 +107,10 @@ data HiError =
   | HiErrorInvalidState
   deriving (Show, Eq)
 
+-- | Hi monad.
 class Monad m => HiMonad m where
   runAction :: HiAction -> m HiValue
 
+-- | Applies function to arguments.
 apply :: HiFun -> [HiExpr] -> HiExpr
 apply = HiExprApply . HiExprValue . HiValueFunction

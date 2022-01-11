@@ -45,17 +45,25 @@ import           GHC.Real                 (Ratio (..))
 import           HW3.Base
 import           HW3.Classes
 
+-- | Analogue to Either with HiError and HiValue.
 data Value = Er HiError | Val HiValue
 
+-- | Unary operation over Value.
 type UnaryOperator   = Value -> Value
+
+-- | Binary operation over Value.
 type BinaryOperator  = Value -> UnaryOperator
+
+-- | Ternary operation over Value.
 type TernaryOperator = Value -> BinaryOperator
 
-er :: Value -> Value
+-- | Checks errors of unary operation.
+er :: UnaryOperator
 er hiError@(Er _) = hiError
 er _              = Er HiErrorInvalidArgument
 
-er2 :: Value -> Value -> Value
+-- | Checks errors of binary operation.
+er2 :: BinaryOperator
 er2 hiError@(Er _) _ = hiError
 er2 _              a = er a
 
@@ -87,6 +95,7 @@ fromByteInt = fromBytes . fromElement . (fromInteger :: Integer -> Word8)
 fromSeq :: Seq HiValue -> Value
 fromSeq = Val . HiValueList
 
+-- | Creates dictionary from map.
 fromDict :: Map HiValue HiValue -> Value
 fromDict = Val . HiValueDict
 
@@ -201,39 +210,46 @@ instance Stringable Value where
   (~-~) = string (~-~)
   fromText text = Val $ HiValueString text
 
-(.+.) :: Value -> Value -> Value
+-- | Concatenates dictionaries.
+(.+.) :: BinaryOperator
 (.+.) (Val (HiValueDict a)) (Val (HiValueDict b)) = fromDict $ (<>) a b
 (.+.) a                     b                     = er2 a b
 
-(.^.) :: Value -> Value
+-- | Extracts keys of dictionary.
+(.^.) :: UnaryOperator
 (.^.) (Val (HiValueDict a)) = fromSeq . fromList $ keys a
 (.^.) a                     = er a
 
-(.$.) :: Value -> Value
+-- | Extracts values of dictionary.
+(.$.) :: UnaryOperator
 (.$.) (Val (HiValueDict a)) = fromSeq . fromList $ map snd $ Data.Map.toList a
 (.$.) a                     = er a
 
 toCountMap :: (Ord k, Foldable t) => t k -> Map k HiValue
 toCountMap a = HiValueNumber <$> fromListWith (+) (flip zip (repeat 1) $ Data.Foldable.toList a)
 
-(.#.) :: Value -> Value
+-- | Calculates length.
+(.#.) :: UnaryOperator
 (.#.) (Val (HiValueString a))  = fromDict $ toCountMap $ HiValueString . fromElement <$> unpack a
 (.#.) (Val (HiValueList a))    = fromDict $ toCountMap a
 (.#.) a@(Val (HiValueBytes _)) = (.#.) $ bytesToList a
 (.#.) a                        = er a
 
-(.!.) :: Value -> Value
+-- | Calculates slice.
+(.!.) :: UnaryOperator
 (.!.) (Val (HiValueDict a)) = fromDict $ fmap (HiValueList . fromList) inverseMap
   where
     inverseMap = fromListWith (<>) $ (\(x, y) -> (y, [x])) <$> Data.Map.toList a
 (.!.) a                     = er a
 
-range :: Value -> Value -> Value
+-- | Calculates range.
+range :: BinaryOperator
 range (Val (HiValueNumber a)) (Val (HiValueNumber b)) = fromSeq $ fromList $ generateRange a b
   where
     generateRange x y = fmap HiValueNumber [x..y]
 range a                       b                       = er2 a b
 
+-- | Calculates fold.
 fold :: HiMonad m => (HiFun -> [HiExpr] -> m Value) -> Value -> Value -> m Value
 fold _       (Val (HiValueFunction _)) (Val (HiValueList Empty))    = pure $ Val HiValueNull
 fold applier (Val (HiValueFunction f)) (Val (HiValueList elements)) = do
@@ -243,63 +259,75 @@ fold applier (Val (HiValueFunction f)) (Val (HiValueList elements)) = do
     (i, j)         -> pure $ er2 i j
 fold _       a                         b                            = pure $ er2 a b
 
-bytesToList :: Value -> Value
+-- | Converts bytes to list.
+bytesToList :: UnaryOperator
 bytesToList (Val (HiValueBytes a)) = fromSeq $ fromList $ hiValueInteger <$> unpackBytes a
   where
     hiValueInteger = HiValueNumber . toRational . toInteger
 bytesToList a                      = er a
 
-listToBytes :: Value -> Value
+-- | Converts list to bytes.
+listToBytes :: UnaryOperator
 listToBytes (Val (HiValueList a)) = foldl' (~+~) (Val $ HiValueBytes mempty) $ fmap (toByte . Val) a
   where
     toByte b@(Val (HiValueNumber (n :% 1))) = if n >= 0 && n < 256 then fromByteInt n else er b
     toByte b                                = er b
 listToBytes a                      = er a
 
-fromUtf8 :: Value -> Value
+-- | Converts text to bytes.
+fromUtf8 :: UnaryOperator
 fromUtf8 (Val (HiValueString a)) = fromBytes $ encodeUtf8 a
 fromUtf8 a                       = er a
 
-toUtf8 :: Value -> Value
+-- | Converts bytes to text.
+toUtf8 :: UnaryOperator
 toUtf8 (Val (HiValueBytes a)) = either (const hiNull) fromText $ decodeUtf8' a
 toUtf8 a                      = er a
 
-valueToBytes :: Value -> Value
+-- | Converts any value to bytes.
+valueToBytes :: UnaryOperator
 valueToBytes (Val a) = fromBytes $ LazyByteString.toStrict $ serialise a
 valueToBytes hiError = hiError
 
-bytesToValue :: Value -> Value
+-- | Converts bytes to a value.
+bytesToValue :: UnaryOperator
 bytesToValue (Val (HiValueBytes a)) = Val $ deserialise $ LazyByteString.fromStrict a
 bytesToValue a                      = er a
 
-zip' :: Value -> Value
+-- | Compresses bytes.
+zip' :: UnaryOperator
 zip' (Val (HiValueBytes a)) = fromLazyBytes $ compressWith params $ LazyByteString.fromStrict a
   where
     params = defaultCompressParams { compressLevel = bestCompression }
 zip' a                      = er a
 
-unzip' :: Value -> Value
+-- | Decompresses bytes.
+unzip' :: UnaryOperator
 unzip' (Val (HiValueBytes a)) = fromLazyBytes $ decompressWith params $ LazyByteString.fromStrict a
   where
     params = defaultDecompressParams
 unzip' a                      = er a
 
-read' :: Value -> Value
+-- | Reads file.
+read' :: UnaryOperator
 read' (Val (HiValueString a)) = fromAction $ HiActionRead $ unpack a
 read' a                       = er a
 
 fromWrite :: Text -> ByteString -> Value
 fromWrite a b = fromAction $ HiActionWrite (unpack a) b
 
-write' :: Value -> Value -> Value
+-- | Writes to file.
+write' :: BinaryOperator
 write' (Val (HiValueString a)) (Val (HiValueString b)) = fromWrite a (encodeUtf8 b)
 write' (Val (HiValueString a)) (Val (HiValueBytes b))  = fromWrite a b
 write' a                         b                     = er2 a b
 
-mkdir' :: Value -> Value
+-- | Creates directory.
+mkdir' :: UnaryOperator
 mkdir' (Val (HiValueString a)) = fromAction $ HiActionMkDir $ unpack a
 mkdir' a                       = er a
 
-cd' :: Value -> Value
+-- | Moves to directory.
+cd' :: UnaryOperator
 cd' (Val (HiValueString a)) = fromAction $ HiActionChDir $ unpack a
 cd' a                       = er a
