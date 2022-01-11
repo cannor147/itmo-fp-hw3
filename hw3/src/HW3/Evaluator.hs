@@ -8,9 +8,11 @@ module HW3.Evaluator
   ) where
 
 import           Control.Applicative (liftA2)
-import           Data.Foldable       (foldl')
+import           Data.Foldable       (foldl', toList)
+import           Data.Map            (Map, empty, fromListWith, keys, singleton,
+                                      toList, lookup)
 import           Data.Sequence       (Seq (..), fromList)
-import           Data.Text           (Text)
+import           Data.Text           (Text, unpack)
 import           GHC.Real            (Ratio (..))
 import           HW3.Base
 import           HW3.Classes
@@ -62,6 +64,12 @@ fromChar = fromText . fromElement
 fromSeq :: Seq HiValue -> Value
 fromSeq = Val . HiValueList
 
+fromDict :: Map HiValue HiValue -> Value
+fromDict = Val . HiValueDict
+
+hiNull :: Value
+hiNull = Val HiValueNull
+
 instance Num Value where
   abs                                                     = arithmetic abs
   signum                                                  = arithmetic signum
@@ -87,25 +95,12 @@ instance Boolean Value where
   fromBool = Val . HiValueBool
 
 instance Equalable Value Value where
-  (#==#) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a == b
-  (#==#) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a == b
-  (#==#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a == b
-  (#==#) (Val (HiValueString a))   (Val (HiValueString b))   = fromBool $ a == b
-  (#==#) (Val HiValueNull)         (Val HiValueNull)         = fromBool True
-  (#==#) (Val (HiValueList a))     (Val (HiValueList b))     = undefined
-  (#==#) hiError@(Er _)            _                         = hiError
-  (#==#) _                         hiError@(Er _)            = hiError
-  (#==#) _                         _                         = fromBool False
+  (#==#) (Val a) (Val b) = fromBool $ a == b
+  (#==#) a       b       = er2 a b
 
 instance Comparable Value Value where
-  (#<=#) (Val (HiValueFunction a)) (Val (HiValueFunction b)) = fromBool $ a <= b
-  (#<=#) (Val (HiValueNumber a))   (Val (HiValueNumber b))   = fromBool $ a <= b
-  (#<=#) (Val (HiValueNumber _))   (Val (HiValueBool _))     = fromBool False
-  (#<=#) (Val (HiValueBool a))     (Val (HiValueBool b))     = fromBool $ a <= b
-  (#<=#) (Val (HiValueBool _))     (Val (HiValueNumber _))   = fromBool True
-  (#<=#) (Val (HiValueString a))   (Val (HiValueString b))   = fromBool $ a <= b
-  (#<=#) (Val HiValueNull)         (Val HiValueNull)         = fromBool True
-  (#<=#) a                         b                         = er2 a b
+  (#<=#) (Val a) (Val b) = fromBool $ a <= b
+  (#<=#) a       b       = er2 a b
 
 instance Conditional Value Value where
   (#?:#) (Val (HiValueBool True))  value _     = value
@@ -142,6 +137,9 @@ instance Contentable Value Value where
   fromElement hiError@(Er _) = hiError
 
 instance Iterable Value Value Value where
+  (~@~) (Val (HiValueDict a))   (Val b)                        = maybe hiNull Val foundValue
+    where
+      foundValue = Data.Map.lookup b a
   (~@~) (Val (HiValueString a)) (Val (HiValueNumber (b :% 1))) = fromChar ((~@~) a b :: Char)
   (~@~) (Val (HiValueList a))   (Val (HiValueNumber (b :% 1))) = Val $ (~@~) a b
   (~@~) a                       b                              = er2 a b
@@ -151,6 +149,32 @@ instance Stringable Value where
   (~.~) = string (~.~)
   (~-~) = string (~-~)
   fromText text = Val $ HiValueString text
+
+(.+.) :: Value -> Value -> Value
+(.+.) (Val (HiValueDict a)) (Val (HiValueDict b)) = fromDict $ (<>) a b
+(.+.) a                     b                     = er2 a b
+
+(.^.) :: Value -> Value
+(.^.) (Val (HiValueDict a)) = fromSeq . fromList $ keys a
+(.^.) a                     = er a
+
+(.$.) :: Value -> Value
+(.$.) (Val (HiValueDict a)) = fromSeq . fromList $ map snd $ Data.Map.toList a
+(.$.) a                     = er a
+
+toCountMap :: (Ord k, Foldable t) => t k -> Map k HiValue
+toCountMap a = HiValueNumber <$> fromListWith (+) (flip zip (repeat 1) $ Data.Foldable.toList a)
+
+(.#.) :: Value -> Value
+(.#.) (Val (HiValueList a))   = fromDict $ toCountMap a
+(.#.) (Val (HiValueString a)) = fromDict $ toCountMap $ HiValueString . fromElement <$> unpack a
+(.#.) a                     = er a
+
+(.!.) :: Value -> Value
+(.!.) (Val (HiValueDict a)) = fromDict $ fmap (HiValueList . fromList) inverseMap
+  where
+    inverseMap = fromListWith (<>) $ (\(x, y) -> (y, [x])) <$> Data.Map.toList a
+(.!.) a                     = er a
 
 range :: Value -> Value -> Value
 range (Val (HiValueNumber a)) (Val (HiValueNumber b)) = fromSeq $ fromList $ generateRange a b
@@ -167,12 +191,13 @@ fold (Val (HiValueFunction f)) (Val (HiValueList elements)) = do
     (i, j)         -> pure $ er2 i j
 fold a                          b                           = pure $ er2 a b
 
-
 evaluate :: Monad m => HiExpr -> m Value
 evaluate (HiExprValue value)                                    = pure $ Val value
+evaluate (HiExprDict keyValues)                                 = evaluateDict keyValues
 evaluate (HiExprApply (HiExprValue (HiValueFunction fun)) args) = evaluateFunction fun args
 evaluate (HiExprApply str@(HiExprValue (HiValueString _)) args) = evaluateSlicing str args
 evaluate (HiExprApply list@(HiExprValue (HiValueList _)) args)  = evaluateSlicing list args
+evaluate (HiExprApply dict@(HiExprValue (HiValueDict _)) args)  = evaluateSlicing dict args
 evaluate (HiExprApply (HiExprValue _) _)                        = pure $ Er HiErrorInvalidFunction
 evaluate (HiExprApply expression arguments)                     = evaluate expression >>= \case
   Val hiValue -> evaluate $ HiExprApply (HiExprValue hiValue) arguments
@@ -201,6 +226,10 @@ evaluateFunction HiFunTrim           [x]       = evaluateUnaryFunction   (~-~)  
 evaluateFunction HiFunList           elements  = evaluateList                   elements
 evaluateFunction HiFunRange          [x, y]    = evaluateBinaryFunction  range  x y
 evaluateFunction HiFunFold           [x, y]    = evaluate x >>= \a -> evaluate y >>= \b -> fold a b
+evaluateFunction HiFunCount          [x]       = evaluateUnaryFunction   (.#.)  x
+evaluateFunction HiFunKeys           [x]       = evaluateUnaryFunction   (.^.)  x
+evaluateFunction HiFunValues         [x]       = evaluateUnaryFunction   (.$.)  x
+evaluateFunction HiFunInvert         [x]       = evaluateUnaryFunction   (.!.)  x
 evaluateFunction _                   _         = pure $ Er HiErrorArityMismatch
 
 evaluateSlicing :: Monad m => HiExpr -> [HiExpr] -> m Value
@@ -228,3 +257,14 @@ evaluateTernaryFunction operation firstArgument secondArgument thirdArgument = d
 
 evaluateList :: Monad m => [HiExpr] -> m Value
 evaluateList elements = foldl' (liftA2 (~&~)) (pure (~~~)) $ map evaluate elements
+
+evaluateDict :: Monad m => [(HiExpr, HiExpr)] -> m Value
+evaluateDict dict = foldl' (liftA2 (.+.)) emptyDict $ map evaluateKeyValue dict
+  where
+    emptyDict = pure . fromDict $ Data.Map.empty
+    evaluateKeyValue (key, value) = do
+      evaluatedKey   <- evaluate key
+      evaluatedValue <- evaluate value
+      case (evaluatedKey, evaluatedValue) of
+        (Val a, Val b) -> pure . fromDict $ Data.Map.singleton a b
+        (a    , b)     -> pure $ er2 a b

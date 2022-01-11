@@ -2,14 +2,15 @@ module HW3.Pretty
   ( prettyValue
   ) where
 
+import           Data.Foldable                 (toList)
+import           Data.Map                      (Map, toList)
 import           Data.Scientific               (fromRationalRepetendUnlimited)
 import           Data.Sequence                 (Seq (..))
 import           Data.Text                     (Text)
 import           GHC.Real                      (Ratio (..))
 import           HW3.Base
-import           Prettyprinter                 (Doc, pretty, viaShow, (<+>), list)
+import           Prettyprinter
 import           Prettyprinter.Render.Terminal (AnsiStyle)
-import Data.Foldable (toList)
 
 prettyValue :: HiValue -> Doc AnsiStyle
 prettyValue (HiValueFunction function) = prettyFunction function
@@ -17,7 +18,8 @@ prettyValue (HiValueNumber number)     = prettyNumber number
 prettyValue (HiValueBool bool)         = prettyBool bool
 prettyValue (HiValueString string)     = prettyString string
 prettyValue HiValueNull                = prettyNull
-prettyValue (HiValueList elements)     = prettyList elements
+prettyValue (HiValueList elements)     = HW3.Pretty.prettyList elements
+prettyValue (HiValueDict dict)         = prettyDict dict
 
 prettyFunction :: HiFun -> Doc AnsiStyle
 prettyFunction HiFunAdd            = pretty "add"
@@ -42,6 +44,10 @@ prettyFunction HiFunTrim           = pretty "trim"
 prettyFunction HiFunList           = pretty "list"
 prettyFunction HiFunRange          = pretty "range"
 prettyFunction HiFunFold           = pretty "fold"
+prettyFunction HiFunCount          = pretty "count"
+prettyFunction HiFunKeys           = pretty "keys"
+prettyFunction HiFunValues         = pretty "values"
+prettyFunction HiFunInvert         = pretty "invert"
 
 prettyNumber :: Rational -> Doc AnsiStyle
 prettyNumber (n :% 1)        = pretty n
@@ -64,4 +70,14 @@ prettyNull :: Doc AnsiStyle
 prettyNull = pretty "null"
 
 prettyList :: Seq HiValue -> Doc AnsiStyle
-prettyList = list . toList . fmap prettyValue
+prettyList = list . Data.Foldable.toList . fmap prettyValue
+
+prettyDict :: Map HiValue HiValue -> Doc AnsiStyle
+prettyDict dict = case null dict of
+  True -> pretty "{}"
+  False -> group . encloseSep open close separator . fmap prettyKeyValue . Data.Map.toList $ dict
+    where
+      prettyKeyValue (x, y) = surround (pretty ": ") (prettyValue x) (prettyValue y)
+      open                  = flatAlt (pretty "{ ") (pretty "{ ")
+      close                 = flatAlt (pretty " }") (pretty " }")
+      separator             = pretty ", "

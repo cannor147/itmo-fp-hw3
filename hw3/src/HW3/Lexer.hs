@@ -17,8 +17,13 @@ module HW3.Lexer
   , close
   , openSquare
   , closeSquare
+  , openBrace
+  , closeBrace
   , comma
+  , colon
+  , dot
   , number
+  , word
   , string
   , keyword
   , parseFully
@@ -26,8 +31,8 @@ module HW3.Lexer
 
 import           Data.Text                  (Text, pack)
 import           Data.Void                  (Void)
-import           Text.Megaparsec            (Parsec, eof, manyTill, runParser)
-import           Text.Megaparsec.Char       (char, space1)
+import           Text.Megaparsec            (Parsec, eof, manyTill, runParser, some)
+import           Text.Megaparsec.Char       (char, space1, alphaNumChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error      (ParseErrorBundle (..))
 
@@ -88,8 +93,20 @@ openSquare = symbol "["
 closeSquare :: HiSymbol
 closeSquare = symbol "]"
 
+openBrace :: HiSymbol
+openBrace = symbol "{"
+
+closeBrace :: HiSymbol
+closeBrace = symbol "}"
+
 comma :: HiSymbol
 comma = symbol ","
+
+colon :: HiSymbol
+colon = symbol ":"
+
+dot :: HiSymbol
+dot = symbol "."
 
 number :: HiNumber
 number = toRational <$> lexeme (L.signed skipWhiteSpaces L.scientific)
@@ -99,6 +116,9 @@ string = pack <$> lexeme (char '\"' *> manyTill L.charLiteral (char '\"'))
 
 keyword :: String -> HiSymbol
 keyword = lexeme . symbol
+
+word :: HiSymbol
+word = lexeme $ some alphaNumChar
 
 symbol :: String -> HiSymbol
 symbol = L.symbol skipWhiteSpaces
